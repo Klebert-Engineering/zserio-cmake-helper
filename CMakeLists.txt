@@ -1,5 +1,9 @@
 project(zserio-cmake-helper)
 
+# Add a target to which zserio libs are added
+add_custom_target(${PROJECT_NAME} ALL
+  COMMENT "Target to which add_zserio_library is appending.")
+
 # Make sure the path to the zserio git repository root is set
 if (NOT DEFINED ZSERIO_REPO_ROOT)
   message(FATAL_ERROR "ZSERIO_REPO_ROOT must be set before add_subdirectory(zserio-cmake-helper)!")
@@ -56,20 +60,39 @@ if (NOT ZSERIO_ANT_RESULT EQUAL "0")
   message(FATAL_ERROR "Failed to build zserio.jar in ${ZSERIO_REPO_ROOT}.")
 endif()
 
-# Assume location of bundled result jar-file, store in target "zserio-jar"
-set(ZSERIO_JAR_PATH "${ZSERIO_DISTR_DIR}/zserio.jar")
-add_custom_target(zserio-jar
-  DEPENDS "${ZSERIO_JAR_PATH}"
-  COMMENT "Compiled zserio jar file.")
-set_target_properties(zserio-jar
+# Assume location of bundled result jar-file, store as target property
+set_target_properties(${PROJECT_NAME}
   PROPERTIES
     jar "${ZSERIO_JAR_PATH}")
 
-# Add a target to which other zserio libs are added
-add_custom_target(zserio-libraries ALL
-  COMMENT "Target to which add_zserio_library is appending.")
-
-# Function to create a zserio library
+# Function to create a library from zserio schema sources.
+#
+# The following arguments are supported:
+#   ZS_LIB_NAME
+#     Must be the first argument. This will be the name of
+#     the newly generated target.
+#   EXCLUDE_FROM_ALL
+#     Set this flag to prevent that the new target is added
+#     as a dependency to the zserio-cmake-helper target.
+#   WITH_REFLECTION
+#     Set this flag to enable the -withTypeInfoCode flag for
+#     the zserio C++ emitter.
+#   SHARED
+#     Set this flag to create a shared instead of a static lib.
+#   ROOT [schema-root-dir]
+#     Must be set to the parent directory of your zserio
+#     schema entry file.
+#   ENTRY [zserio-file]
+#     Must be set to the zs file name under [ROOT] which
+#     is the entry point of your schema.
+#   TOP_LEVEL_PKG [pkg-name]
+#     Optional top-level namespace for your schema.
+#
+# Example:
+#   add_zserio_library(mylib WITH_REFLECTION
+#     ROOT path/to/mylib-schema
+#     ENTRY mylib.zs)
+#
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0
     ZS_LIB "EXCLUDE_FROM_ALL;WITH_REFLECTION;SHARED" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
