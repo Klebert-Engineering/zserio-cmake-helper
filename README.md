@@ -24,7 +24,7 @@ add_subdirectory(deps/zserio-cmake-helper)
 
 **Important: Make sure that `ant` and `java` are available on your system!**
 Otherwise, the above call will fail. Once the `zserio-cmake-helper` directory
-is added, the `add_zserio_module` helper function will be available.
+is added, the `add_zserio_library` helper function will be available.
 
 ```cmake
 # Adapt using following parameters:
