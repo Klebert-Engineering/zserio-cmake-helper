@@ -65,10 +65,14 @@ set_target_properties(zserio-jar
   PROPERTIES
     jar "${ZSERIO_JAR_PATH}")
 
+# Add a target to which other zserio libs are added
+add_custom_target(zserio-libraries ALL
+  COMMENT "Target to which add_zserio_library is appending.")
+
 # Function to create a zserio library
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0
-    ZS_LIB "EXCLUDE_FROM_ALL" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
+    ZS_LIB "EXCLUDE_FROM_ALL;WITH_REFLECTION;SHARED" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
 
   if (NOT ZS_LIB_ROOT)
     message(FATAL_ERROR "Missing zserio-module argument ROOT!")
@@ -94,16 +98,21 @@ function(add_zserio_library ZS_LIB_NAME)
   list(APPEND ZSERIO "${JAR_PATH}")
 
   set(zserio_top_level_arg "")
+  set(zserio_reflection_arg "")
   if (ZS_LIB_TOP_LEVEL_PKG)
     set(zserio_top_level_arg "-setTopLevelPackage")
+  endif()
+  if (ZS_LIB_WITH_REFLECTION)
+    set(zserio_reflection_arg "-withTypeInfoCode")
   endif()
 
   message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
   execute_process(
-    COMMAND ${ZSERIO} ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
+    COMMAND ${ZSERIO}
+      ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
+      ${zserio_reflection_arg}
       -cpp ${ZSERIO_GEN_DIR}
       -src ${ZS_LIB_ROOT}
-      -withTypeInfoCode
       ${ZS_LIB_ENTRY}
     COMMAND_ECHO STDOUT
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
@@ -116,7 +125,11 @@ function(add_zserio_library ZS_LIB_NAME)
   file(GLOB_RECURSE HEADERS_API "${ZSERIO_GEN_DIR}/*.h")
   file(GLOB_RECURSE SOURCES_API "${ZSERIO_GEN_DIR}/*.cpp")
 
-  add_library(${ZS_LIB_NAME} STATIC ${SOURCES_API} ${HEADERS_API})
+  if (ZS_LIB_SHARED)
+    add_library(${ZS_LIB_NAME} SHARED ${SOURCES_API} ${HEADERS_API})
+  else()
+    add_library(${ZS_LIB_NAME} STATIC ${SOURCES_API} ${HEADERS_API})
+  endif()
 
   set_target_properties(${ZS_LIB_NAME} PROPERTIES
     POSITION_INDEPENDENT_CODE YES
@@ -126,4 +139,8 @@ function(add_zserio_library ZS_LIB_NAME)
 
   target_include_directories(${ZS_LIB_NAME} PUBLIC "${ZSERIO_GEN_DIR}")
   target_link_libraries(${ZS_LIB_NAME} ZserioCppRuntime)
+
+  if (NOT ZS_LIB_EXCLUDE_FROM_ALL)
+    add_dependencies(zserio-libraries ${ZS_LIB_NAME})
+  endif()
 endfunction()
