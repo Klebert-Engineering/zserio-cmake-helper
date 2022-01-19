@@ -1,6 +1,6 @@
 # zserio-cmake-helper
 
-Provides the `add_zs_library` CMake function. The CMakeLists.txt will
+Provides the `add_zserio_library` CMake function. The CMakeLists.txt will
 automatically build a `zserio.jar` from you zserio submodule, which will
 then be used to generate C++ sources for your schema.
 
