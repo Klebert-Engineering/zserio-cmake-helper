@@ -1,0 +1,129 @@
+project(zserio-cmake-helper)
+
+# Make sure the path to the zserio git repository root is set
+if (NOT DEFINED ZSERIO_REPO_ROOT)
+  message(FATAL_ERROR "ZSERIO_REPO_ROOT must be set before add_subdirectory(zserio-cmake-helper)!")
+endif()
+
+# Makes sure zserio C++ runtime is added
+if (NOT TARGET ZserioCppRuntime)
+  message(FATAL_ERROR "ZserioCppRuntime target is not available! Did you forget to call add_subdirectory(.../zserio/compiler/extensions/cpp/runtime/src)?")
+endif()
+
+# Find `ant` command to build zserio.jar
+find_program(ANT_PATH NAMES ant)
+if (NOT ANT_PATH)
+  message(FATAL_ERROR "Could not find ant binary!")
+endif()
+
+# Setup build/install locations for zserio jar files in the CMake build folder
+set(ZSERIO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/zserio)
+set(ZSERIO_BUILD_DIR ${ZSERIO_OUTPUT_DIR}/build)
+set(ZSERIO_DISTR_DIR ${ZSERIO_OUTPUT_DIR}/distr)
+set(ZSERIO_ANT_PROPS
+  "-Dzserio.build_dir=${ZSERIO_BUILD_DIR}"
+  "-Dzserio.install_dir=${ZSERIO_DISTR_DIR}"
+  "-Dzserio_extensions.build_dir=${ZSERIO_BUILD_DIR}/compiler/extensions"
+  "-Dzserio_extensions.install_dir=${ZSERIO_DISTR_DIR}/zserio_libs"
+  "-Dzserio_runtimes.build_dir=${ZSERIO_BUILD_DIR}/runtime_libs"
+  "-Dzserio_runtimes.install_dir=${ZSERIO_DISTR_DIR}/runtime_libs"
+  "-Dzserio_core.jar_file=${ZSERIO_BUILD_DIR}/compiler/core/jar/zserio_core.jar")
+
+# Run ant for zserio_core, zserio_cpp and zserio_doc, then bundle into zserio.jar
+message("=> Running main zserio ant install ...")
+execute_process(
+  COMMAND ${ANT_PATH} ${ZSERIO_ANT_PROPS} install
+  WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
+  RESULT_VARIABLE ZSERIO_ANT_RESULT)
+message("=> Running zserio cpp extension ant install ...")
+execute_process(
+  COMMAND ${ANT_PATH} -f compiler/extensions/cpp ${ZSERIO_ANT_PROPS} install
+  WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
+  RESULT_VARIABLE ZSERIO_ANT_RESULT)
+message("=> Running zserio doc extension ant install ...")
+execute_process(
+  COMMAND ${ANT_PATH} -f compiler/extensions/doc ${ZSERIO_ANT_PROPS} install
+  WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
+  RESULT_VARIABLE ZSERIO_ANT_RESULT)
+message("=> Running zserio bundle install ...")
+execute_process(
+  COMMAND ${ANT_PATH} ${ZSERIO_ANT_PROPS} zserio_bundle.install
+  WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
+  RESULT_VARIABLE ZSERIO_ANT_RESULT)
+
+# Make sure the previous commands were successful
+if (NOT ZSERIO_ANT_RESULT EQUAL "0")
+  message(FATAL_ERROR "Failed to build zserio.jar in ${ZSERIO_REPO_ROOT}.")
+endif()
+
+# Assume location of bundled result jar-file, store in target "zserio-jar"
+set(ZSERIO_JAR_PATH "${ZSERIO_DISTR_DIR}/zserio.jar")
+add_custom_target(zserio-jar
+  DEPENDS "${ZSERIO_JAR_PATH}"
+  COMMENT "Compiled zserio jar file.")
+set_target_properties(zserio-jar
+  PROPERTIES
+    jar "${ZSERIO_JAR_PATH}")
+
+# Function to create a zserio library
+function(add_zserio_library ZS_LIB_NAME)
+  cmake_parse_arguments(PARSE_ARGV 0
+    ZS_LIB "EXCLUDE_FROM_ALL" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
+
+  if (NOT ZS_LIB_ROOT)
+    message(FATAL_ERROR "Missing zserio-module argument ROOT!")
+  elseif (NOT ZS_LIB_ENTRY)
+    message(FATAL_ERROR "Missing zserio-module argument ENTRY!")
+  endif()
+
+  set(ZSERIO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/${ZSR_LIB_NAME}.zserio-gen/")
+  file(REMOVE_RECURSE "${ZSERIO_GEN_DIR}")
+  file(MAKE_DIRECTORY "${ZSERIO_GEN_DIR}")
+
+  find_program(JAVA java)
+  if (NOT JAVA)
+    message(FATAL_ERROR "Could not find java!")
+  endif()
+
+  set(ZSERIO ${JAVA})
+  get_target_property(JAR_PATH zserio-jar jar)
+  if (${JAR_PATH} EQUAL "NOTFOUND")
+    message(FATAL_ERROR "Could not read property 'jar' from target 'zserio-jar'.")
+  endif()
+  list(APPEND ZSERIO "-jar")
+  list(APPEND ZSERIO "${JAR_PATH}")
+
+  set(zserio_top_level_arg "")
+  if (ZS_LIB_TOP_LEVEL_PKG)
+    set(zserio_top_level_arg "-setTopLevelPackage")
+  endif()
+
+  message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
+  execute_process(
+    COMMAND ${ZSERIO} ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
+      -cpp ${ZSERIO_GEN_DIR}
+      -src ${ZS_LIB_ROOT}
+      -withTypeInfoCode
+      ${ZS_LIB_ENTRY}
+    COMMAND_ECHO STDOUT
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    RESULT_VARIABLE ZSERIO_RESULT)
+
+  if (NOT ZSERIO_RESULT EQUAL "0")
+    message(FATAL_ERROR "/////////// zserio FAILED to generate ${ZS_LIB_NAME} module! ///////////")
+  endif()
+
+  file(GLOB_RECURSE HEADERS_API "${ZSERIO_GEN_DIR}/*.h")
+  file(GLOB_RECURSE SOURCES_API "${ZSERIO_GEN_DIR}/*.cpp")
+
+  add_library(${ZS_LIB_NAME} STATIC ${SOURCES_API} ${HEADERS_API})
+
+  set_target_properties(${ZS_LIB_NAME} PROPERTIES
+    POSITION_INDEPENDENT_CODE YES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS NO)
+
+  target_include_directories(${ZS_LIB_NAME} PUBLIC "${ZSERIO_GEN_DIR}")
+  target_link_libraries(${ZS_LIB_NAME} ZserioCppRuntime)
+endfunction()
