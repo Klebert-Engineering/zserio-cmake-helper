@@ -63,7 +63,7 @@ endif()
 # Assume location of bundled result jar-file, store as target property
 set_target_properties(${PROJECT_NAME}
   PROPERTIES
-    jar "${ZSERIO_JAR_PATH}")
+    jar "${ZSERIO_DISTR_DIR}/zserio.jar")
 
 # Function to create a library from zserio schema sources.
 #
@@ -113,9 +113,9 @@ function(add_zserio_library ZS_LIB_NAME)
   endif()
 
   set(ZSERIO ${JAVA})
-  get_target_property(JAR_PATH zserio-jar jar)
+  get_target_property(JAR_PATH zserio-cmake-helper jar)
   if (${JAR_PATH} EQUAL "NOTFOUND")
-    message(FATAL_ERROR "Could not read property 'jar' from target 'zserio-jar'.")
+    message(FATAL_ERROR "Could not read property 'jar' from target 'zserio-cmake-helper'.")
   endif()
   list(APPEND ZSERIO "-jar")
   list(APPEND ZSERIO "${JAR_PATH}")
@@ -164,6 +164,6 @@ function(add_zserio_library ZS_LIB_NAME)
   target_link_libraries(${ZS_LIB_NAME} ZserioCppRuntime)
 
   if (NOT ZS_LIB_EXCLUDE_FROM_ALL)
-    add_dependencies(zserio-libraries ${ZS_LIB_NAME})
+    add_dependencies(zserio-cmake-helper ${ZS_LIB_NAME})
   endif()
 endfunction()
