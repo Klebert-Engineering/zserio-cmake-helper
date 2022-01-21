@@ -103,7 +103,7 @@ function(add_zserio_library ZS_LIB_NAME)
     message(FATAL_ERROR "Missing zserio-module argument ENTRY!")
   endif()
 
-  set(ZSERIO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/${ZSR_LIB_NAME}.zserio-gen/")
+  set(ZSERIO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/${ZS_LIB_NAME}.zserio-gen/")
   file(REMOVE_RECURSE "${ZSERIO_GEN_DIR}")
   file(MAKE_DIRECTORY "${ZSERIO_GEN_DIR}")
 
