@@ -150,6 +150,7 @@ function(add_zserio_library ZS_LIB_NAME)
 
   if (ZS_LIB_SHARED)
     add_library(${ZS_LIB_NAME} SHARED ${SOURCES_API} ${HEADERS_API})
+    set_target_properties(${ZS_LIB_NAME} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
   else()
     add_library(${ZS_LIB_NAME} STATIC ${SOURCES_API} ${HEADERS_API})
   endif()
