@@ -37,6 +37,9 @@ is added, the `add_zserio_library` helper function will be available.
 #   WITH_REFLECTION
 #     Set this flag to enable the -withTypeInfoCode flag for
 #     the zserio C++ emitter.
+#   WITHOUT_SQL
+#     Set this flag to enable the -withoutSqlCode flag for the
+#     zserio C++ emitter.
 #   SHARED
 #     Set this flag to create a shared instead of a static lib.
 #   ROOT [schema-root-dir]

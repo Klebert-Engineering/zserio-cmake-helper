@@ -77,6 +77,9 @@ set_target_properties(${PROJECT_NAME}
 #   WITH_REFLECTION
 #     Set this flag to enable the -withTypeInfoCode flag for
 #     the zserio C++ emitter.
+#   WITHOUT_SQL
+#     Set this flag to enable the -withoutSqlCode flag for the
+#     zserio C++ emitter.
 #   SHARED
 #     Set this flag to create a shared instead of a static lib.
 #   ROOT [schema-root-dir]
@@ -95,7 +98,7 @@ set_target_properties(${PROJECT_NAME}
 #
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0
-    ZS_LIB "EXCLUDE_FROM_ALL;WITH_REFLECTION;SHARED" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
+    ZS_LIB "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
 
   if (NOT ZS_LIB_ROOT)
     message(FATAL_ERROR "Missing zserio-module argument ROOT!")
@@ -122,18 +125,22 @@ function(add_zserio_library ZS_LIB_NAME)
 
   set(zserio_top_level_arg "")
   set(zserio_reflection_arg "")
+  set(zserio_sql_arg "")
   if (ZS_LIB_TOP_LEVEL_PKG)
     set(zserio_top_level_arg "-setTopLevelPackage")
   endif()
   if (ZS_LIB_WITH_REFLECTION)
     set(zserio_reflection_arg "-withTypeInfoCode")
   endif()
+  if (ZS_LIB_WITHOUT_SQL)
+    set(zserio_sql_arg "-withoutSqlCode")
+  endif()
 
   message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
   execute_process(
     COMMAND ${ZSERIO}
       ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
-      ${zserio_reflection_arg}
+      ${zserio_reflection_arg} ${zserio_sql_arg}
       -cpp ${ZSERIO_GEN_DIR}
       -src ${ZS_LIB_ROOT}
       ${ZS_LIB_ENTRY}
