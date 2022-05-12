@@ -9,11 +9,6 @@ if (NOT DEFINED ZSERIO_REPO_ROOT)
   message(FATAL_ERROR "ZSERIO_REPO_ROOT must be set before add_subdirectory(zserio-cmake-helper)!")
 endif()
 
-# Makes sure zserio C++ runtime is added
-if (NOT TARGET ZserioCppRuntime)
-  message(FATAL_ERROR "ZserioCppRuntime target is not available! Did you forget to call add_subdirectory(.../zserio/compiler/extensions/cpp/runtime/src)?")
-endif()
-
 # Find `ant` command to build zserio.jar
 find_program(ANT_PATH NAMES ant)
 if (NOT ANT_PATH)
@@ -65,6 +60,35 @@ set_target_properties(${PROJECT_NAME}
   PROPERTIES
     jar "${ZSERIO_DISTR_DIR}/zserio.jar")
 
+# Macro to add zserio-sqlite3 as shipped under zserio/3rdparty
+macro(add_zserio_sqlite3)
+  add_library(zserio-sqlite3
+    STATIC
+      ${ZSERIO_REPO_ROOT}/3rdparty/sqlite/sqlite3.c
+      ${ZSERIO_REPO_ROOT}/3rdparty/sqlite/sqlite3.h)
+  target_include_directories(zserio-sqlite3
+    PUBLIC
+      "${ZSERIO_REPO_ROOT}/3rdparty/sqlite")
+  target_compile_definitions(zserio-sqlite3
+    PRIVATE
+      SQLITE_ENABLE_FTS4 SQLITE_ENABLE_FTS5)
+  if (UNIX)
+    target_link_libraries(zserio-sqlite3 PUBLIC dl)
+  endif ()
+endmacro()
+
+# Macro to add ZserioCppRuntime
+# If the option WITH_SQLITE is set, add_zserio_sqlite3
+# will be called, and ZserioCppRuntime will link against it.
+macro(add_zserio_cpp_runtime)
+  cmake_parse_arguments(ZS_RUNTIME WITH_SQLITE3 "" "")
+  add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
+  if (ZS_RUNTIME_WITH_SQLITE3)
+    add_zserio_sqlite3()
+    target_link_libraries(ZserioCppRuntime PUBLIC zserio-sqlite3)
+  endif()
+endmacro()
+
 # Function to create a library from zserio schema sources.
 #
 # The following arguments are supported:
@@ -99,6 +123,11 @@ set_target_properties(${PROJECT_NAME}
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0
     ZS_LIB "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
+
+  # Makes sure zserio C++ runtime is added
+  if (NOT TARGET ZserioCppRuntime)
+    message(FATAL_ERROR "ZserioCppRuntime target is not available! Did you forget to call add_zserio_cpp_runtime()?")
+  endif()
 
   if (NOT ZS_LIB_ROOT)
     message(FATAL_ERROR "Missing zserio-module argument ROOT!")

@@ -6,20 +6,17 @@ then be used to generate C++ sources for your schema.
 
 ## Usage
 
-In your project's top-level CMakeLists.txt, make sure that the zserio C++
-runtime subdirectory is already added. You must then set `ZSERIO_REPO_ROOT`
-to the top-level zserio repo path. For example:
+In your project's top-level CMakeLists.txt, set `ZSERIO_REPO_ROOT`
+to the top-level zserio repo path, then add the `zserio_cmake_helper`
+subdirectory, then call `add_zserio_cpp_runtime()`:
 
 ```cmake
 # Assume zserio submodule is cloned under deps/zserio
-add_subdirectory(deps/zserio/compiler/extensions/cpp/runtime/src)
 set(ZSERIO_REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/deps/zserio")
-```
-
-You can then add this project as a subdirectory:
-
-```cmake
 add_subdirectory(deps/zserio-cmake-helper)
+add_zserio_cpp_runtime()
+
+# Now ZserioCppRuntime is available as a target.
 ```
 
 **Important: Make sure that `ant` and `java` are available on your system!**
