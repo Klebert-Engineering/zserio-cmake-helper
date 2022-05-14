@@ -64,11 +64,12 @@ set_target_properties(${PROJECT_NAME}
 macro(add_zserio_sqlite3)
   add_library(zserio-sqlite3
     STATIC
-      ${ZSERIO_REPO_ROOT}/3rdparty/sqlite/sqlite3.c
-      ${ZSERIO_REPO_ROOT}/3rdparty/sqlite/sqlite3.h)
+      "${ZSERIO_REPO_ROOT}/3rdparty/cpp/sqlite/sqlite3.c"
+      "${ZSERIO_REPO_ROOT}/3rdparty/cpp/sqlite/sqlite3.h")
   target_include_directories(zserio-sqlite3
     PUBLIC
-      "${ZSERIO_REPO_ROOT}/3rdparty/sqlite")
+      "${ZSERIO_REPO_ROOT}/3rdparty/cpp/sqlite")
+  message("zserio-sqlite3 is now available from ${ZSERIO_REPO_ROOT}/3rdparty/cpp/sqlite")
   target_compile_definitions(zserio-sqlite3
     PRIVATE
       SQLITE_ENABLE_FTS4 SQLITE_ENABLE_FTS5)
@@ -78,11 +79,12 @@ macro(add_zserio_sqlite3)
 endmacro()
 
 # Macro to add ZserioCppRuntime
-# If the option WITH_SQLITE is set, add_zserio_sqlite3
+# If the option WITH_SQLITE3 is set, add_zserio_sqlite3
 # will be called, and ZserioCppRuntime will link against it.
 macro(add_zserio_cpp_runtime)
-  cmake_parse_arguments(ZS_RUNTIME WITH_SQLITE3 "" "")
+  cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
   add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
+  message("Adding zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src. With SQLite: ${ZS_RUNTIME_WITH_SQLITE3}")
   if (ZS_RUNTIME_WITH_SQLITE3)
     add_zserio_sqlite3()
     target_link_libraries(ZserioCppRuntime PUBLIC zserio-sqlite3)
@@ -104,6 +106,14 @@ endmacro()
 #   WITHOUT_SQL
 #     Set this flag to enable the -withoutSqlCode flag for the
 #     zserio C++ emitter.
+#   WITH_IMPLICIT_ARRAYS
+#     Set this flag to enable the -allowImplicitArrays
+#     flag for the zserio C++ emitter.
+#   WITH_POLYMORPHIC_ALLOC
+#     Set this flag to enable the -setCppAllocator polymorphic
+#     flag for the zserio C++ emitter.
+#   QUIET
+#     Suppress all zserio compiler output.
 #   SHARED
 #     Set this flag to create a shared instead of a static lib.
 #   ROOT [schema-root-dir]
@@ -121,8 +131,9 @@ endmacro()
 #     ENTRY mylib.zs)
 #
 function(add_zserio_library ZS_LIB_NAME)
-  cmake_parse_arguments(PARSE_ARGV 0
-    ZS_LIB "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED" "ROOT;ENTRY;TOP_LEVEL_PKG" "")
+  cmake_parse_arguments(PARSE_ARGV 0 ZS_LIB
+    "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC"
+    "ROOT;ENTRY;TOP_LEVEL_PKG" "")
 
   # Makes sure zserio C++ runtime is added
   if (NOT TARGET ZserioCppRuntime)
@@ -155,6 +166,9 @@ function(add_zserio_library ZS_LIB_NAME)
   set(zserio_top_level_arg "")
   set(zserio_reflection_arg "")
   set(zserio_sql_arg "")
+  set(zserio_impl_arr_arg "")
+  set(zserio_with_polymorphic_alloc_arg "")
+  set(quiet "")
   if (ZS_LIB_TOP_LEVEL_PKG)
     set(zserio_top_level_arg "-setTopLevelPackage")
   endif()
@@ -164,18 +178,28 @@ function(add_zserio_library ZS_LIB_NAME)
   if (ZS_LIB_WITHOUT_SQL)
     set(zserio_sql_arg "-withoutSqlCode")
   endif()
+  if (ZS_LIB_WITH_IMPLICIT_ARRAYS)
+    set(zserio_impl_arr_arg "-allowImplicitArrays")
+  endif()
+  if (ZS_LIB_QUIET)
+    set(quiet OUTPUT_QUIET ERROR_QUIET)
+  endif()
+  if (ZS_LIB_WITH_POLYMORPHIC_ALLOC)
+    set(zserio_with_polymorphic_alloc_arg "-setCppAllocator" "polymorphic")
+  endif()
 
   message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
   execute_process(
     COMMAND ${ZSERIO}
       ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
-      ${zserio_reflection_arg} ${zserio_sql_arg}
+      ${zserio_reflection_arg} ${zserio_sql_arg} ${zserio_impl_arr_arg} ${zserio_with_polymorphic_alloc_arg}
       -cpp ${ZSERIO_GEN_DIR}
       -src ${ZS_LIB_ROOT}
       ${ZS_LIB_ENTRY}
     COMMAND_ECHO STDOUT
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    RESULT_VARIABLE ZSERIO_RESULT)
+    RESULT_VARIABLE ZSERIO_RESULT
+    ${quiet})
 
   if (NOT ZSERIO_RESULT EQUAL "0")
     message(FATAL_ERROR "/////////// zserio FAILED to generate ${ZS_LIB_NAME} module! ///////////")
@@ -193,12 +217,13 @@ function(add_zserio_library ZS_LIB_NAME)
 
   set_target_properties(${ZS_LIB_NAME} PROPERTIES
     POSITION_INDEPENDENT_CODE YES
-    CXX_STANDARD 11
+    CXX_STANDARD 14
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO)
 
   target_include_directories(${ZS_LIB_NAME} PUBLIC "${ZSERIO_GEN_DIR}")
-  target_link_libraries(${ZS_LIB_NAME} ZserioCppRuntime)
+  target_link_libraries(${ZS_LIB_NAME} PUBLIC ZserioCppRuntime)
+  target_compile_features (${ZS_LIB_NAME} PUBLIC cxx_std_14)
 
   if (NOT ZS_LIB_EXCLUDE_FROM_ALL)
     add_dependencies(zserio-cmake-helper ${ZS_LIB_NAME})
