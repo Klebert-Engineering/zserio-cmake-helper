@@ -17,14 +17,14 @@ Both versions provide the `add_zserio_library` CMake function which generates zs
 
 ## Pre-Requisites
 
-## Option 1: Building zserio from source
+### Option 1: Building zserio from source
 
 As the zserio compiler is built in JAVA, your system needs the following:
 
 - JDK 11 (e.g. `openjdk11`)
 - Apache Ant
 
-## Option 2: Pre-Built zserio
+### Option 2: Pre-Built zserio
 
 The pre-built zserio needs Python3 (3.8.x) and internet access to PyPI to download the appropriate release.
 
