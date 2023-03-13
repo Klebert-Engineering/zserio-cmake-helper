@@ -42,6 +42,19 @@ if (NOT ${EXIT_CODE} EQUAL 0)
     endif()
 endif()
 
+# Add the user's local bin directory to the CMake program search path
+list(APPEND CMAKE_PROGRAM_PATH "$ENV{HOME}/.local/bin")
+
+# Find the zserio command-line tool installed by pip
+find_program(ZSERIO_CMD zserio)
+
+if(NOT ZSERIO_CMD)
+  message(FATAL_ERROR "zserio command-line tool not found")
+endif()
+
+message(STATUS "Found zserio command-line tool: ${ZSERIO_CMD}")
+
+set(ZSERIO "${ZSERIO_CMD}" CACHE INTERNAL "path to zserio command")
 ########
 
 
@@ -128,7 +141,6 @@ function(add_zserio_library ZS_LIB_NAME)
   file(REMOVE_RECURSE "${ZSERIO_GEN_DIR}")
   file(MAKE_DIRECTORY "${ZSERIO_GEN_DIR}")
 
-  set(ZSERIO "zserio")
   set(zserio_top_level_arg "")
   set(zserio_reflection_arg "")
   set(zserio_sql_arg "")
