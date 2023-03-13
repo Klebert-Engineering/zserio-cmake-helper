@@ -1,10 +1,38 @@
 # zserio-cmake-helper
 
-Provides the `add_zserio_library` CMake function. The CMakeLists.txt will
-automatically build a `zserio.jar` from your zserio submodule, which will
-then be used to generate C++ sources for your schema.
+This repository provides two different CMake configurations to include zserio into any C++ project. These two configurations target the following use cases:
+
+- Build zserio generator and runtime from source 
+- Use pre-built version of zserio compiler and runtime
+
+Building from source is helpful if you need to check out latest changes in the [zserio](https://github.com/ndsev/zserio) repository or want to experiment with your own zserio sources.
+
+The pre-built version is using the zserio compiler provided for Python3 and the versioned runtime directly from the zserio main repo. It is recommended for all developments that can stick with a dedicated version, as it does not need a JDK and Ant installed and uses thoroughly tested release versions of zserio.
+
+The `CMakeLists.txt` in the root directory of this repository is to be used if building from source and is maintained in root for backward compatibility reasons.
+
+The `CMakeLists.txt` in the `python` folder is to be used for the versioned and pre-built config.
+
+Both versions provide the `add_zserio_library` CMake function which generates zserio code based on a provided schema.
+
+## Pre-Requisites
+
+## Option 1: Building zserio from source
+
+As the zserio compiler is built in JAVA, your system needs the following:
+
+- JDK 11 (e.g. `openjdk11`)
+- Apache Ant
+
+## Option 2: Pre-Built zserio
+
+The pre-built zserio needs Python3 (3.8.x) and internet access to PyPI to download the appropriate release.
 
 ## Usage
+
+### Option 1: Building zserio from source
+
+Add zserio and the zserio-cmake-helper repositories as submodules to your project.
 
 In your project's top-level CMakeLists.txt, set `ZSERIO_REPO_ROOT`
 to the top-level zserio repo path, then add the `zserio_cmake_helper`
@@ -22,8 +50,37 @@ add_zserio_cpp_runtime()
 # inside of the zserio repo under 3rdparty/sqlite3.
 ```
 
-**Important: Make sure that `ant` and `java` are available on your system!**
-Otherwise, the above call will fail. Once the `zserio-cmake-helper` directory
+### Option 2: Pre-Built zserio
+
+This variant uses CMake's FetchContent module to add the required configurations.
+
+In your project's top-level CMakeLists.txt, set `ZSERIO_VERSION`
+to the desired zserio version, then add the `zserio_cmake_helper`
+project via FetchContent, then call `add_zserio_cpp_runtime()`:
+
+```cmake
+# Set zserio version and fetch helper from Github
+include(FetchContent)
+set(ZSERIO_VERSION "2.10.0")
+
+if (NOT TARGET zserio-cmake-helper)
+  FetchContent_Declare(
+    zserio-cmake-helper
+    GIT_REPOSITORY https://github.com/Klebert-Engineering/zserio-cmake-helper.git
+    GIT_TAG        "e2517d463a08e802ec0dbd2972473230455ac9cc" # update if necessary
+    SOURCE_SUBDIR  python
+  )
+  FetchContent_MakeAvailable(zserio-cmake-helper)
+endif()
+
+add_zserio_cpp_runtime()
+```
+
+In contrast to the option to build from source, you will have to provide SQLite if you whish to use the SQLite options of zserio. This can be done for example by adding it via Conan or by simply copying the sources.
+
+### Both options: `add_zserio_library`
+
+Once the `zserio-cmake-helper` directory
 is added, the `add_zserio_library` helper function will be available.
 
 ```cmake
