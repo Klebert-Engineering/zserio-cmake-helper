@@ -250,6 +250,7 @@ function(add_zserio_library ZS_LIB_NAME)
     COMMAND ${ZSERIO}
       ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
       ${zserio_reflection_arg} ${zserio_sql_arg} ${zserio_impl_arr_arg} ${zserio_with_polymorphic_alloc_arg}
+      -withoutCrossExtensionCheck
       -cpp ${ZSERIO_GEN_DIR}
       -src ${ZS_LIB_ROOT}
       ${ZS_LIB_ENTRY}
