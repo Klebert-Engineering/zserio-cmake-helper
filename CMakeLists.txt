@@ -14,7 +14,8 @@ if(DEFINED ZSERIO_VERSION)
   message("=> Downloading zserio.jar from GitHub releases ...")
   file(DOWNLOAD
     "https://github.com/ndsev/zserio/releases/download/v${ZSERIO_VERSION}/zserio-${ZSERIO_VERSION}-bin.zip"
-    "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip" SHOW_PROGRESS)
+    "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip"
+    )
   
   # Unzip zserio.jar
   message("=> Unzipping zserio.jar ...")
@@ -92,6 +93,8 @@ elseif(DEFINED ZSERIO_REPO_ROOT)
       jar "${ZSERIO_DISTR_DIR}/zserio.jar")
 
   message("=> zserio.jar is now available from ${ZSERIO_DISTR_DIR}/zserio.jar")
+else()
+  message(FATAL_ERROR "Either ZSERIO_REPO_ROOT or ZSERIO_VERSION must be defined to use zserio.")
 endif()
 
 
@@ -138,7 +141,8 @@ macro(add_zserio_cpp_runtime)
       FetchContent_Declare(
         ZserioCppRuntime
         GIT_REPOSITORY https://github.com/ndsev/zserio.git
-        GIT_TAG        "v${ZSERIO_VERSION}" 
+        GIT_TAG        "v${ZSERIO_VERSION}"
+        GIT_SHALLOW    TRUE 
         SOURCE_SUBDIR  compiler/extensions/cpp/runtime/src
       )
       FetchContent_MakeAvailable(ZserioCppRuntime)
@@ -158,8 +162,8 @@ endmacro()
 #     Set this flag to prevent that the new target is added
 #     as a dependency to the zserio-cmake-helper target.
 #   WITH_REFLECTION
-#     Set this flag to enable the -withTypeInfoCode flag for
-#     the zserio C++ emitter.
+#     Set this flag to enable the -withTypeInfoCode and 
+#     the -withReflectionCode flags for the zserio C++ emitter.
 #   WITHOUT_SQL
 #     Set this flag to enable the -withoutSqlCode flag for the
 #     zserio C++ emitter.
