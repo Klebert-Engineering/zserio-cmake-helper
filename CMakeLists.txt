@@ -16,7 +16,7 @@ if(DEFINED ZSERIO_VERSION)
     "https://github.com/ndsev/zserio/releases/download/v${ZSERIO_VERSION}/zserio-${ZSERIO_VERSION}-bin.zip"
     "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip"
     )
-  
+
   # Unzip zserio.jar
   message("=> Unzipping zserio.jar ...")
   execute_process(
@@ -142,7 +142,7 @@ macro(add_zserio_cpp_runtime)
         ZserioCppRuntime
         GIT_REPOSITORY https://github.com/ndsev/zserio.git
         GIT_TAG        "v${ZSERIO_VERSION}"
-        GIT_SHALLOW    TRUE 
+        GIT_SHALLOW    TRUE
         SOURCE_SUBDIR  compiler/extensions/cpp/runtime/src
       )
       FetchContent_MakeAvailable(ZserioCppRuntime)
@@ -162,7 +162,7 @@ endmacro()
 #     Set this flag to prevent that the new target is added
 #     as a dependency to the zserio-cmake-helper target.
 #   WITH_REFLECTION
-#     Set this flag to enable the -withTypeInfoCode and 
+#     Set this flag to enable the -withTypeInfoCode and
 #     the -withReflectionCode flags for the zserio C++ emitter.
 #   WITHOUT_SQL
 #     Set this flag to enable the -withoutSqlCode flag for the
@@ -173,6 +173,9 @@ endmacro()
 #   WITH_POLYMORPHIC_ALLOC
 #     Set this flag to enable the -setCppAllocator polymorphic
 #     flag for the zserio C++ emitter.
+#   WITHOUT_WRITER_CODE
+#     Set this flag to disable code generation for serialisation.
+#     Only deserialization will be supported.
 #   QUIET
 #     Suppress all zserio compiler output.
 #   SHARED
@@ -193,7 +196,7 @@ endmacro()
 #
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0 ZS_LIB
-    "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC"
+    "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC;WITHOUT_WRITER_CODE"
     "ROOT;ENTRY;TOP_LEVEL_PKG" "")
 
   # Makes sure zserio C++ runtime is added
@@ -229,6 +232,7 @@ function(add_zserio_library ZS_LIB_NAME)
   set(zserio_sql_arg "")
   set(zserio_impl_arr_arg "")
   set(zserio_with_polymorphic_alloc_arg "")
+  set(zserio_writer_code_arg "")
   set(quiet "")
   if (ZS_LIB_TOP_LEVEL_PKG)
     set(zserio_top_level_arg "-setTopLevelPackage")
@@ -248,6 +252,9 @@ function(add_zserio_library ZS_LIB_NAME)
   if (ZS_LIB_WITH_POLYMORPHIC_ALLOC)
     set(zserio_with_polymorphic_alloc_arg "-setCppAllocator" "polymorphic")
   endif()
+  if (ZS_LIB_WITHOUT_WRITER_CODE)
+    set(zserio_writer_code_arg "-withoutWriterCode")
+  endif ()
 
   message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
   execute_process(
@@ -255,6 +262,7 @@ function(add_zserio_library ZS_LIB_NAME)
       ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
       ${zserio_reflection_arg} ${zserio_sql_arg} ${zserio_impl_arr_arg} ${zserio_with_polymorphic_alloc_arg}
       -withoutCrossExtensionCheck
+      ${zserio_writer_code_arg}
       -cpp ${ZSERIO_GEN_DIR}
       -src ${ZS_LIB_ROOT}
       ${ZS_LIB_ENTRY}
