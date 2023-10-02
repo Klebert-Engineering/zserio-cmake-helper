@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 project(zserio-cmake-helper)
 
 # Add a target to which zserio libs are added
@@ -10,24 +10,19 @@ add_custom_target(${PROJECT_NAME} ALL
 # either build zserio.jar from source or download a pre-built version.
 
 if(DEFINED ZSERIO_VERSION)
+  set(ZSERIO_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip")
+
   # Download pre-built zserio.jar from GitHub releases
   message("=> Downloading zserio.jar from GitHub releases ...")
   file(DOWNLOAD
     "https://github.com/ndsev/zserio/releases/download/v${ZSERIO_VERSION}/zserio-${ZSERIO_VERSION}-bin.zip"
-    "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip"
-    )
+    "${ZSERIO_ARCHIVE}")
+
   
   # Unzip zserio.jar
   message("=> Unzipping zserio.jar ...")
-  execute_process(
-    COMMAND ${CMAKE_COMMAND} -E tar xzf "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    RESULT_VARIABLE ZSERIO_UNZIP_RESULT)
-
-  # Make sure the previous commands were successful
-  if (NOT ZSERIO_UNZIP_RESULT EQUAL "0")
-    message(FATAL_ERROR "Failed to unzip zserio.jar from ${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip.")
-  endif()
+  file(ARCHIVE_EXTRACT INPUT "${ZSERIO_ARCHIVE}"
+    DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 
   # Assume location of bundled result jar-file, store as target property
   set_target_properties(${PROJECT_NAME}
