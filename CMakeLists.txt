@@ -13,10 +13,12 @@ if(DEFINED ZSERIO_VERSION)
   set(ZSERIO_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip")
 
   # Download pre-built zserio.jar from GitHub releases
-  message("=> Downloading zserio.jar from GitHub releases ...")
-  file(DOWNLOAD
-    "https://github.com/ndsev/zserio/releases/download/v${ZSERIO_VERSION}/zserio-${ZSERIO_VERSION}-bin.zip"
-    "${ZSERIO_ARCHIVE}")
+  if (NOT EXISTS "${ZSERIO_ARCHIVE}")
+    message("=> Downloading zserio.jar from GitHub releases ...")
+    file(DOWNLOAD
+      "https://github.com/ndsev/zserio/releases/download/v${ZSERIO_VERSION}/zserio-${ZSERIO_VERSION}-bin.zip"
+      "${ZSERIO_ARCHIVE}")
+  endif()
 
   
   # Unzip zserio.jar
@@ -180,6 +182,10 @@ endmacro()
 #     is the entry point of your schema.
 #   TOP_LEVEL_PKG [pkg-name]
 #     Optional top-level namespace for your schema.
+#   CACHE_GENERATION
+#     Only run zserio if the target C++ source have not been generated
+#     or the specified ZS_LIB_ENTRY changed. Note that changes of other
+#     files will not trigger a re-run of zserio!
 #
 # Example:
 #   add_zserio_library(mylib WITH_REFLECTION
@@ -188,7 +194,7 @@ endmacro()
 #
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0 ZS_LIB
-    "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC"
+    "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC;CACHE_GENERATION"
     "ROOT;ENTRY;TOP_LEVEL_PKG" "")
 
   # Makes sure zserio C++ runtime is added
@@ -202,68 +208,97 @@ function(add_zserio_library ZS_LIB_NAME)
     message(FATAL_ERROR "Missing zserio-module argument ENTRY!")
   endif()
 
+  set(WANTS_REGENERATION YES)
   set(ZSERIO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/${ZS_LIB_NAME}.zserio-gen/")
-  file(REMOVE_RECURSE "${ZSERIO_GEN_DIR}")
-  file(MAKE_DIRECTORY "${ZSERIO_GEN_DIR}")
 
-  find_program(JAVA java)
-  if (NOT JAVA)
-    message(FATAL_ERROR "Could not find java!")
-  endif()
+  # Trigger reconfiguration if the lib's entry file changed
+  set_property(SOURCE ${ZS_LIB_ROOT}/${ZS_LIB_ENTRY} APPEND PROPERTY
+    CMAKE_CONFIGURE_DEPENDS)
 
-  set(ZSERIO ${JAVA})
-  get_target_property(JAR_PATH zserio-cmake-helper jar)
-  if (${JAR_PATH} EQUAL "NOTFOUND")
-    message(FATAL_ERROR "Could not read property 'jar' from target 'zserio-cmake-helper'.")
-  endif()
-  list(APPEND ZSERIO "-jar")
-  list(APPEND ZSERIO "${JAR_PATH}")
+  # Compute the current entry file hash
+  file(SHA1 "${ZS_LIB_ROOT}/${ZS_LIB_ENTRY}" NEW_LIB_ENTRY_HASH)
 
-  set(zserio_top_level_arg "")
-  set(zserio_reflection_arg "")
-  set(zserio_sql_arg "")
-  set(zserio_impl_arr_arg "")
-  set(zserio_with_polymorphic_alloc_arg "")
-  set(quiet "")
-  if (ZS_LIB_TOP_LEVEL_PKG)
-    set(zserio_top_level_arg "-setTopLevelPackage")
-  endif()
-  if (ZS_LIB_WITH_REFLECTION)
-    set(zserio_reflection_arg "-withTypeInfoCode" "-withReflectionCode")
-  endif()
-  if (ZS_LIB_WITHOUT_SQL)
-    set(zserio_sql_arg "-withoutSqlCode")
-  endif()
-  if (ZS_LIB_WITH_IMPLICIT_ARRAYS)
-    set(zserio_impl_arr_arg "-allowImplicitArrays")
-  endif()
-  if (ZS_LIB_QUIET)
-    set(quiet OUTPUT_QUIET ERROR_QUIET)
-  endif()
-  if (ZS_LIB_WITH_POLYMORPHIC_ALLOC)
-    set(zserio_with_polymorphic_alloc_arg "-setCppAllocator" "polymorphic")
+  # Compare against the stored entry file hash
+  set(LIB_ENTRY_HASH_FILE "${ZSERIO_GEN_DIR}/.entry.sha1")
+  if (EXISTS "${LIB_ENTRY_HASH_FILE}" AND NEW_LIB_ENTRY_HASH AND ZS_LIB_CACHE_GENERATION)
+    file(READ "${LIB_ENTRY_HASH_FILE}" CUR_LIB_ENTRY_HASH)
+    if ("${NEW_LIB_ENTRY_HASH}" STREQUAL "${CUR_LIB_ENTRY_HASH}")
+      message(STATUS "=> Hash of ${ZS_LIB_ENTRY} did not change; "
+	             "skipping code generation.")
+      set(WANTS_REGENERATION NO)
+    endif()
   endif()
 
-  message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
-  execute_process(
-    COMMAND ${ZSERIO}
-      ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
-      ${zserio_reflection_arg} ${zserio_sql_arg} ${zserio_impl_arr_arg} ${zserio_with_polymorphic_alloc_arg}
-      -withoutCrossExtensionCheck
-      -cpp ${ZSERIO_GEN_DIR}
-      -src ${ZS_LIB_ROOT}
-      ${ZS_LIB_ENTRY}
-    COMMAND_ECHO STDOUT
-    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    RESULT_VARIABLE ZSERIO_RESULT
-    ${quiet})
+  if (${WANTS_REGENERATION})
+    file(REMOVE_RECURSE "${ZSERIO_GEN_DIR}")
+    file(MAKE_DIRECTORY "${ZSERIO_GEN_DIR}")
 
-  if (NOT ZSERIO_RESULT EQUAL "0")
-    message(FATAL_ERROR "/////////// zserio FAILED to generate ${ZS_LIB_NAME} module! ///////////")
+    if (NEW_LIB_ENTRY_HASH)
+      file(WRITE "${LIB_ENTRY_HASH_FILE}" "${NEW_LIB_ENTRY_HASH}")
+    endif()
+
+    find_program(JAVA java)
+    if (NOT JAVA)
+      message(FATAL_ERROR "Could not find java!")
+    endif()
+
+    set(ZSERIO ${JAVA})
+    get_target_property(JAR_PATH zserio-cmake-helper jar)
+    if (${JAR_PATH} EQUAL "NOTFOUND")
+      message(FATAL_ERROR "Could not read property 'jar' from target 'zserio-cmake-helper'.")
+    endif()
+    list(APPEND ZSERIO "-jar")
+    list(APPEND ZSERIO "${JAR_PATH}")
+
+    set(zserio_top_level_arg "")
+    set(zserio_reflection_arg "")
+    set(zserio_sql_arg "")
+    set(zserio_impl_arr_arg "")
+    set(zserio_with_polymorphic_alloc_arg "")
+    set(quiet "")
+    if (ZS_LIB_TOP_LEVEL_PKG)
+      set(zserio_top_level_arg "-setTopLevelPackage")
+    endif()
+    if (ZS_LIB_WITH_REFLECTION)
+      set(zserio_reflection_arg "-withTypeInfoCode" "-withReflectionCode")
+    endif()
+    if (ZS_LIB_WITHOUT_SQL)
+      set(zserio_sql_arg "-withoutSqlCode")
+    endif()
+    if (ZS_LIB_WITH_IMPLICIT_ARRAYS)
+      set(zserio_impl_arr_arg "-allowImplicitArrays")
+    endif()
+    if (ZS_LIB_QUIET)
+      set(quiet OUTPUT_QUIET ERROR_QUIET)
+    endif()
+    if (ZS_LIB_WITH_POLYMORPHIC_ALLOC)
+      set(zserio_with_polymorphic_alloc_arg "-setCppAllocator" "polymorphic")
+    endif()
+
+    message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
+    execute_process(
+      COMMAND ${ZSERIO}
+        ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
+        ${zserio_reflection_arg} ${zserio_sql_arg} ${zserio_impl_arr_arg}
+	${zserio_with_polymorphic_alloc_arg}
+        -withoutCrossExtensionCheck
+        -cpp ${ZSERIO_GEN_DIR}
+        -src ${ZS_LIB_ROOT}
+        ${ZS_LIB_ENTRY}
+      COMMAND_ECHO STDOUT
+      WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+      RESULT_VARIABLE ZSERIO_RESULT
+      ${quiet})
+
+    if (NOT ZSERIO_RESULT EQUAL "0")
+      message(FATAL_ERROR "/////////// zserio FAILED to generate ${ZS_LIB_NAME} module! ///////////")
+    endif()
   endif()
 
   file(GLOB_RECURSE HEADERS_API "${ZSERIO_GEN_DIR}/*.h")
   file(GLOB_RECURSE SOURCES_API "${ZSERIO_GEN_DIR}/*.cpp")
+  set(GENERATED_FILES "${HEADERS_API};${SOURCES_API}")
+  set_source_files_properties(${GENERATED_FILES} PROPERTIES GENERATED TRUE)
 
   if (ZS_LIB_SHARED)
     add_library(${ZS_LIB_NAME} SHARED ${SOURCES_API} ${HEADERS_API})
