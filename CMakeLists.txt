@@ -217,6 +217,10 @@ function(add_zserio_library ZS_LIB_NAME)
 
   # Compute the current entry file hash
   file(SHA1 "${ZS_LIB_ROOT}/${ZS_LIB_ENTRY}" NEW_LIB_ENTRY_HASH)
+  if (NOT DEFINED ZSERIO_VERSION)
+    set(ZSERIO_VERSION "any")
+  endif()
+  set(NEW_LIB_ENTRY_HASH "${ZSERIO_VERSION}:${NEW_LIB_ENTRY_HASH}")
 
   # Compare against the stored entry file hash
   set(LIB_ENTRY_HASH_FILE "${ZSERIO_GEN_DIR}/.entry.sha1")
@@ -224,7 +228,7 @@ function(add_zserio_library ZS_LIB_NAME)
     file(READ "${LIB_ENTRY_HASH_FILE}" CUR_LIB_ENTRY_HASH)
     if ("${NEW_LIB_ENTRY_HASH}" STREQUAL "${CUR_LIB_ENTRY_HASH}")
       message(STATUS "=> Hash of ${ZS_LIB_ENTRY} did not change; "
-	             "skipping code generation.")
+	                   "skipping code generation.")
       set(WANTS_REGENERATION NO)
     endif()
   endif()
