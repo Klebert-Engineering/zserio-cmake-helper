@@ -196,7 +196,8 @@ endmacro()
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0 ZS_LIB
     "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC;CACHE_GENERATION"
-    "ROOT;ENTRY;TOP_LEVEL_PKG" "")
+    "ROOT;ENTRY;TOP_LEVEL_PKG"
+    "EXTRA_ARGS")
 
   # Makes sure zserio C++ runtime is added
   if (NOT TARGET ZserioCppRuntime)
@@ -255,38 +256,36 @@ function(add_zserio_library ZS_LIB_NAME)
     list(APPEND ZSERIO "-jar")
     list(APPEND ZSERIO "${JAR_PATH}")
 
-    set(zserio_top_level_arg "")
-    set(zserio_reflection_arg "")
-    set(zserio_sql_arg "")
-    set(zserio_impl_arr_arg "")
-    set(zserio_with_polymorphic_alloc_arg "")
     set(quiet "")
+    set(zserio_args "")
+
     if (ZS_LIB_TOP_LEVEL_PKG)
-      set(zserio_top_level_arg "-setTopLevelPackage")
+      list(APPEND zserio_args "-setTopLevelPackage" "${ZS_LIB_TOP_LEVEL_PKG}")
     endif()
     if (ZS_LIB_WITH_REFLECTION)
-      set(zserio_reflection_arg "-withTypeInfoCode" "-withReflectionCode")
+      list(APPEND zserio_args "-withTypeInfoCode" "-withReflectionCode")
     endif()
     if (ZS_LIB_WITHOUT_SQL)
-      set(zserio_sql_arg "-withoutSqlCode")
+      list(APPEND zserio_args "-withoutSqlCode")
     endif()
     if (ZS_LIB_WITH_IMPLICIT_ARRAYS)
-      set(zserio_impl_arr_arg "-allowImplicitArrays")
-    endif()
-    if (ZS_LIB_QUIET)
-      set(quiet OUTPUT_QUIET ERROR_QUIET)
+      list(APPEND zserio_args "-allowImplicitArrays")
     endif()
     if (ZS_LIB_WITH_POLYMORPHIC_ALLOC)
-      set(zserio_with_polymorphic_alloc_arg "-setCppAllocator" "polymorphic")
+      list(APPEND zserio_args "-setCppAllocator" "polymorphic")
+    endif()
+
+    list(APPEND zserio_args "-withoutCrossExtensionCheck")
+    list(APPEND zserio_args "${ZS_LIB_EXTRA_ARGS}")
+
+    if (ZS_LIB_QUIET)
+      set(quiet OUTPUT_QUIET ERROR_QUIET)
     endif()
 
     message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
     execute_process(
       COMMAND ${ZSERIO}
-        ${zserio_top_level_arg} ${ZS_LIB_TOP_LEVEL_PKG}
-        ${zserio_reflection_arg} ${zserio_sql_arg} ${zserio_impl_arr_arg}
-	${zserio_with_polymorphic_alloc_arg}
-        -withoutCrossExtensionCheck
+        ${zserio_args}
         -cpp ${ZSERIO_GEN_DIR}
         -src ${ZS_LIB_ROOT}
         ${ZS_LIB_ENTRY}
