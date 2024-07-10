@@ -46,7 +46,7 @@ elseif(DEFINED ZSERIO_REPO_ROOT)
   # Run ant for zserio_core, zserio_cpp and zserio_doc, then bundle into zserio.jar
   message("=> Running main zserio install ...")
   execute_process(
-    COMMAND "${ZSERIO_REPO_ROOT}/scripts/build.sh" cpp doc zserio -o "${ZSERIO_OUTPUT_DIR}"
+    COMMAND "${ZSERIO_REPO_ROOT}/scripts/build.sh" core cpp zserio -o "${ZSERIO_OUTPUT_DIR}"
     WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
     RESULT_VARIABLE ZSERIO_BUILD_RESULT)
 
@@ -193,7 +193,7 @@ function(add_zserio_library ZS_LIB_NAME)
   if (NOT DEFINED ZSERIO_VERSION)
     set(ZSERIO_VERSION "any")
   endif()
-  set(NEW_LIB_ENTRY_HASH "${ZSERIO_VERSION}:${NEW_LIB_ENTRY_HASH}")
+  set(NEW_LIB_ENTRY_HASH "${ZSERIO_VERSION}:${NEW_LIB_ENTRY_HASH}:${ARGV}")
 
   # Compare against the stored entry file hash
   set(LIB_ENTRY_HASH_FILE "${ZSERIO_GEN_DIR}/.entry.sha1")
@@ -256,9 +256,9 @@ function(add_zserio_library ZS_LIB_NAME)
     message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
     execute_process(
       COMMAND ${ZSERIO}
-        ${zserio_args}
         -cpp ${ZSERIO_GEN_DIR}
         -src ${ZS_LIB_ROOT}
+        ${zserio_args}
         ${ZS_LIB_ENTRY}
       COMMAND_ECHO STDOUT
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
