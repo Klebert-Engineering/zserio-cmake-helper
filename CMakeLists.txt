@@ -38,49 +38,20 @@ elseif(DEFINED ZSERIO_REPO_ROOT)
   message("=> Building zserio.jar from source ...")
   message("=> Using zserio from ${ZSERIO_REPO_ROOT}")
 
-  # Find `ant` command to build zserio.jar
-  find_program(ANT_PATH NAMES ant)
-  if (NOT ANT_PATH)
-    message(FATAL_ERROR "Could not find ant binary!")
-  endif()
-
   # Setup build/install locations for zserio jar files in the CMake build folder
   set(ZSERIO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/zserio)
   set(ZSERIO_BUILD_DIR ${ZSERIO_OUTPUT_DIR}/build)
   set(ZSERIO_DISTR_DIR ${ZSERIO_OUTPUT_DIR}/distr)
-  set(ZSERIO_ANT_PROPS
-    "-Dzserio.build_dir=${ZSERIO_BUILD_DIR}"
-    "-Dzserio.install_dir=${ZSERIO_DISTR_DIR}"
-    "-Dzserio_extensions.build_dir=${ZSERIO_BUILD_DIR}/compiler/extensions"
-    "-Dzserio_extensions.install_dir=${ZSERIO_DISTR_DIR}/zserio_libs"
-    "-Dzserio_runtimes.build_dir=${ZSERIO_BUILD_DIR}/runtime_libs"
-    "-Dzserio_runtimes.install_dir=${ZSERIO_DISTR_DIR}/runtime_libs"
-    "-Dzserio_core.jar_file=${ZSERIO_BUILD_DIR}/compiler/core/jar/zserio_core.jar")
 
   # Run ant for zserio_core, zserio_cpp and zserio_doc, then bundle into zserio.jar
-  message("=> Running main zserio ant install ...")
+  message("=> Running main zserio install ...")
   execute_process(
-    COMMAND ${ANT_PATH} ${ZSERIO_ANT_PROPS} install
+    COMMAND "${ZSERIO_REPO_ROOT}/scripts/build.sh" cpp doc zserio -o "${ZSERIO_OUTPUT_DIR}"
     WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
-    RESULT_VARIABLE ZSERIO_ANT_RESULT)
-  message("=> Running zserio cpp extension ant install ...")
-  execute_process(
-    COMMAND ${ANT_PATH} -f compiler/extensions/cpp ${ZSERIO_ANT_PROPS} install
-    WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
-    RESULT_VARIABLE ZSERIO_ANT_RESULT)
-  message("=> Running zserio doc extension ant install ...")
-  execute_process(
-    COMMAND ${ANT_PATH} -f compiler/extensions/doc ${ZSERIO_ANT_PROPS} install
-    WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
-    RESULT_VARIABLE ZSERIO_ANT_RESULT)
-  message("=> Running zserio bundle install ...")
-  execute_process(
-    COMMAND ${ANT_PATH} ${ZSERIO_ANT_PROPS} zserio_bundle.install
-    WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
-    RESULT_VARIABLE ZSERIO_ANT_RESULT)
+    RESULT_VARIABLE ZSERIO_BUILD_RESULT)
 
   # Make sure the previous commands were successful
-  if (NOT ZSERIO_ANT_RESULT EQUAL "0")
+  if (NOT ZSERIO_BUILD_RESULT EQUAL "0")
     message(FATAL_ERROR "Failed to build zserio.jar in ${ZSERIO_REPO_ROOT}.")
   endif()
 
