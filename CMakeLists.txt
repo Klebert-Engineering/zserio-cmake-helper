@@ -46,7 +46,7 @@ elseif(DEFINED ZSERIO_REPO_ROOT)
   # Run ant for zserio_core, zserio_cpp and zserio_doc, then bundle into zserio.jar
   message("=> Running main zserio install ...")
   execute_process(
-    COMMAND "${ZSERIO_REPO_ROOT}/scripts/build.sh" core cpp zserio -o "${ZSERIO_OUTPUT_DIR}"
+    COMMAND bash "${ZSERIO_REPO_ROOT}/scripts/build.sh" core cpp zserio -o "${ZSERIO_OUTPUT_DIR}"
     WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
     RESULT_VARIABLE ZSERIO_BUILD_RESULT)
 
