@@ -50,18 +50,28 @@ elseif(DEFINED ZSERIO_REPO_ROOT)
     string(REPLACE "\\" "/" UNIX_JAVA_HOME "$ENV{JAVA_HOME}")
     string(REGEX REPLACE "^([a-zA-Z]):" "/\\1" UNIX_JAVA_HOME "${UNIX_JAVA_HOME}")
     message(STATUS "Converted JAVA_HOME to Unix-style: ${UNIX_JAVA_HOME}")
-    set(JAVA_ENV "JAVA_HOME=\"${UNIX_JAVA_HOME}\"")
+    set(ENV{JAVA_HOME} ${UNIX_JAVA_HOME})
   else()
     message(STATUS "JAVA_HOME is not defined.")
-    set(JAVA_ENV "")
   endif()
 
+  # Find bash
+  find_program(BASH_EXECUTABLE bash)
+  if(NOT BASH_EXECUTABLE)
+    message(FATAL_ERROR "bash not found. Please ensure that bash is installed and accessible.")
+  endif()
+  message(STATUS "Found bash executable at: ${BASH_EXECUTABLE}")
+
   # Run ant for zserio_core, zserio_cpp, and zserio_doc, then bundle into zserio.jar
-  message("=> Running main zserio install ...")
+  message("=> Running main zserio install: '${BASH_EXECUTABLE}' -c \"'${ZSERIO_REPO_ROOT}/scripts/build.sh' core cpp zserio -o '${ZSERIO_OUTPUT_DIR}'\"")
   execute_process(
-    COMMAND bash -c "${JAVA_ENV} ${ZSERIO_REPO_ROOT}/scripts/build.sh core cpp zserio -o ${ZSERIO_OUTPUT_DIR}"
+    COMMAND ${BASH_EXECUTABLE} -c "'${ZSERIO_REPO_ROOT}/scripts/build.sh' core cpp zserio -o '${ZSERIO_OUTPUT_DIR}'"
     WORKING_DIRECTORY "${ZSERIO_REPO_ROOT}"
-    RESULT_VARIABLE ZSERIO_BUILD_RESULT)
+    RESULT_VARIABLE ZSERIO_BUILD_RESULT
+    ERROR_VARIABLE ZSERIO_BUILD_ERROR)
+
+  message(STATUS "Build error: ${ZSERIO_BUILD_ERROR}")
+  message(STATUS "Build result: ${ZSERIO_BUILD_RESULT}")
 
   # Make sure the previous commands were successful
   if (NOT ZSERIO_BUILD_RESULT EQUAL "0")
