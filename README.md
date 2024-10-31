@@ -117,6 +117,8 @@ Once the `zserio-cmake-helper` target is available, you can use the `add_zserio_
 #     is the entry point of your schema.
 #   TOP_LEVEL_PKG [pkg-name]
 #     Optional top-level namespace for your schema.
+#   EXTRA_ARGS
+#     Allows passing additional arguments to the zserio compiler.
 #
 add_zserio_library(mylib WITH_REFLECTION
   ROOT path/to/mylib-schema
