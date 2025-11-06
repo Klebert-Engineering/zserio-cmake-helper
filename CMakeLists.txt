@@ -5,10 +5,23 @@ project(zserio-cmake-helper)
 add_custom_target(${PROJECT_NAME} ALL
   COMMENT "Target to which add_zserio_library is appending.")
 
+if(DEFINED ZSERIO_CPP17_VERSION)
+  set(ZSERIO_CPP17_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip")
+
+  if (NOT EXISTS "${ZSERIO_CPP17_ARCHIVE}")
+    message("=> Downloading zserio-cpp17.jar from GitHub releases ...")
+    file(DOWNLOAD
+      "https://github.com/ndsev/zserio-cpp17/releases/download/v${ZSERIO_CPP17_VERSION}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip"
+      "${ZSERIO_CPP17_ARCHIVE}")
+  endif()
+
+  message("=> Unzipping zserio-cpp17.jar")
+  file(ARCHIVE_EXTRACT INPUT "${ZSERIO_CPP17_ARCHIVE}"
+    DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
 
 # Depending on whether ZSERIO_REPO_ROOT or ZSERIO_VERSION is set,
 # either build zserio.jar from source or download a pre-built version.
-
 if(DEFINED ZSERIO_VERSION)
   set(ZSERIO_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip")
 
@@ -20,7 +33,6 @@ if(DEFINED ZSERIO_VERSION)
       "${ZSERIO_ARCHIVE}")
   endif()
 
-  
   # Unzip zserio.jar
   message("=> Unzipping zserio.jar ...")
   file(ARCHIVE_EXTRACT INPUT "${ZSERIO_ARCHIVE}"
@@ -117,6 +129,7 @@ endmacro()
 # will be called, and ZserioCppRuntime will link against it.
 macro(add_zserio_cpp_runtime)
   if(DEFINED ZSERIO_REPO_ROOT)
+    message(FATAL_ERROR "TODO: Unsupported")
     message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
     cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
     add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src"
@@ -125,23 +138,38 @@ macro(add_zserio_cpp_runtime)
     if (ZS_RUNTIME_WITH_SQLITE3)
       add_zserio_sqlite3()
       target_link_libraries(ZserioCppRuntime PUBLIC zserio-sqlite3)
-  endif()
+    endif()
   else()
     # Get the runtime from the zserio repository
-    message(STATUS "ZSERIO_VERSION is defined, downloading zserio runtime from Github...")
     if (NOT TARGET ZserioCppRuntime)
-      FetchContent_Declare(
-        ZserioCppRuntime
-        GIT_REPOSITORY https://github.com/ndsev/zserio.git
-        GIT_TAG        "v${ZSERIO_VERSION}"
-        GIT_SHALLOW    TRUE 
-        SOURCE_SUBDIR  compiler/extensions/cpp/runtime/src
-      )
-      FetchContent_MakeAvailable(ZserioCppRuntime)
+      message(STATUS "ZSERIO_VERSION is defined, downloading zserio runtime from Github...")
+      if(DEFINED ZSERIO_CPP17_VERSION)
+        message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git")
+        FetchContent_Declare(
+          ZserioCpp17Runtime
+          GIT_REPOSITORY https://github.com/ndsev/zserio-cpp17.git
+          GIT_TAG        "v${ZSERIO_CPP17_VERSION}"
+          GIT_SHALLOW    TRUE
+          SOURCE_SUBDIR  runtime/src
+        )
+        FetchContent_MakeAvailable(ZserioCpp17Runtime)
+        add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
+      else()
+        message(STATUS "URL: https://github.com/ndsev/zserio.git")
+        FetchContent_Declare(
+          ZserioCppRuntime
+          GIT_REPOSITORY https://github.com/ndsev/zserio.git
+          GIT_TAG        "v${ZSERIO_VERSION}"
+          GIT_SHALLOW    TRUE
+          SOURCE_SUBDIR  compiler/extensions/cpp/runtime/src
+        )
+        FetchContent_MakeAvailable(ZserioCppRuntime)
+      endif()
+    else()
+      message(STATUS "Target ZserioCppRuntime is already available.")
     endif()
     message(STATUS "Downloading zserio runtime from Github... complete!")
   endif()
-
 endmacro()
 
 # Function to create a library from zserio schema sources.
@@ -276,10 +304,15 @@ function(add_zserio_library ZS_LIB_NAME)
       set(quiet OUTPUT_QUIET ERROR_QUIET)
     endif()
 
-    message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
+    set(CPP_GEN_FLAG "-cpp")
+    if(DEFINED ZSERIO_CPP17_VERSION)
+      set(CPP_GEN_FLAG "-cpp17")
+    endif()
+
+    message("=> Generating code for zserio library ${ZS_LIB_NAME} (Generator ${CPP_GEN_FLAG}) ...")
     execute_process(
       COMMAND ${ZSERIO}
-        -cpp ${ZSERIO_GEN_DIR}
+        -cpp17 ${ZSERIO_GEN_DIR}
         -src ${ZS_LIB_ROOT}
         ${zserio_args}
         ${ZS_LIB_ENTRY}
@@ -312,7 +345,11 @@ function(add_zserio_library ZS_LIB_NAME)
     CXX_EXTENSIONS NO)
 
   target_include_directories(${ZS_LIB_NAME} PUBLIC "${ZSERIO_GEN_DIR}")
-  target_link_libraries(${ZS_LIB_NAME} PUBLIC ZserioCppRuntime)
+  if (DEFINED ZSERIO_CPP17_VERSION)
+    target_link_libraries(${ZS_LIB_NAME} PUBLIC ZserioCpp17Runtime)
+  else()
+    target_link_libraries(${ZS_LIB_NAME} PUBLIC ZserioCppRuntime)
+  endif()
   target_compile_features (${ZS_LIB_NAME} PUBLIC cxx_std_14)
 
   if (NOT ZS_LIB_EXCLUDE_FROM_ALL)
