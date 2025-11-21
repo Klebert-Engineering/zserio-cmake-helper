@@ -5,17 +5,19 @@ project(zserio-cmake-helper)
 add_custom_target(${PROJECT_NAME} ALL
   COMMENT "Target to which add_zserio_library is appending.")
 
-if(DEFINED ZSERIO_CPP17_VERSION)
-  set(ZSERIO_CPP17_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip")
+if (DEFINED ZSERIO_CPP17_VERSION)
+  if (NOT DEFINED ZSERIO_CPP17_ARCHIVE)
+    set(ZSERIO_CPP17_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip")
 
-  if (NOT EXISTS "${ZSERIO_CPP17_ARCHIVE}")
-    message("=> Downloading zserio-cpp17.jar from GitHub releases ...")
-    file(DOWNLOAD
-      "https://github.com/ndsev/zserio-cpp17/releases/download/v${ZSERIO_CPP17_VERSION}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip"
-      "${ZSERIO_CPP17_ARCHIVE}")
+    if (NOT EXISTS "${ZSERIO_CPP17_ARCHIVE}")
+      message("=> Downloading zserio-cpp17.jar from GitHub releases ...")
+      file(DOWNLOAD
+        "https://github.com/ndsev/zserio-cpp17/releases/download/v${ZSERIO_CPP17_VERSION}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip"
+        "${ZSERIO_CPP17_ARCHIVE}")
+    endif()
   endif()
 
-  message("=> Unzipping zserio-cpp17.jar")
+  message("=> Unzipping zserio-cpp17.jar (${ZSERIO_CPP17_ARCHIVE})")
   file(ARCHIVE_EXTRACT INPUT "${ZSERIO_CPP17_ARCHIVE}"
     DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
