@@ -197,7 +197,6 @@ endmacro()
 # will be called, and ZserioCppRuntime will link against it.
 macro(add_zserio_cpp_runtime)
   if(DEFINED ZSERIO_REPO_ROOT)
-    message(FATAL_ERROR "TODO: Unsupported")
     message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
     cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
     add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src"
