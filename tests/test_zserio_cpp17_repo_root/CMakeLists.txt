@@ -22,7 +22,7 @@ add_subdirectory(${ZSERIO_TEST_SOURCE_DIR}
 add_zserio_cpp_runtime(main)
 
 add_executable(main
-  main.cpp)
+  ../main-cpp17.cpp)
 
 target_link_libraries(main
   PRIVATE ZserioCppRuntime)
