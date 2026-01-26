@@ -158,11 +158,15 @@ endif()
 
 # Copy the plugin to its destination if the source dir != dest dir
 if (DEFINED ZSERIO_CPP17_PLUGIN_SOURCE_DIR AND NOT "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}" STREQUAL "")
+  message(STATUS "Copying C++17 plugin: ${ZSERIO_CPP17_PLUGIN_SOURCE_DIR} → ${ZSERIO_PLUGIN_DEST_DIR}")
   if (NOT "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}" STREQUAL "${ZSERIO_PLUGIN_DEST_DIR}")
     if (EXISTS "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/extensions")
+      message(STATUS "Copying extensions/ ...")
       file(COPY "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/extensions" DESTINATION "${ZSERIO_PLUGIN_DEST_DIR}")
-    elseif (EXISTS "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/zserio-cpp17.jar")
-      file(COPY "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/zserio-cpp17.jar" DESTINATION "${ZSERIO_PLUGIN_DEST_DIR}")
+    endif()
+    if (EXISTS "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/zserio_cpp17.jar")
+      message(STATUS "Copying zserio_cpp17.jar ...")
+      file(COPY "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/zserio_cpp17.jar" DESTINATION "${ZSERIO_PLUGIN_DEST_DIR}")
     else()
       message(FATAL_ERROR "zserio-cpp17 plugin was requested, but no plugin jar was found in ${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}")
     endif()
@@ -196,52 +200,46 @@ endmacro()
 # If the option WITH_SQLITE3 is set, add_zserio_sqlite3
 # will be called, and ZserioCppRuntime will link against it.
 macro(add_zserio_cpp_runtime)
-  if(DEFINED ZSERIO_REPO_ROOT)
-    message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
-    cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
-    add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src"
-      "./zserio-rt")
-    message("Adding zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src. With SQLite: ${ZS_RUNTIME_WITH_SQLITE3}")
-    if (ZS_RUNTIME_WITH_SQLITE3)
-      add_zserio_sqlite3()
-      target_link_libraries(ZserioCppRuntime PUBLIC zserio-sqlite3)
-    endif()
-  else()
-    # Get the runtime from the zserio repository
-    if (NOT TARGET ZserioCppRuntime)
-      if(DEFINED ZSERIO_CPP17_REPO_ROOT)
-        message(STATUS "ZSERIO_CPP17_REPO_ROOT is defined, using zserio cpp17 runtime from ${ZSERIO_CPP17_REPO_ROOT}/runtime/src")
-        add_subdirectory("${ZSERIO_CPP17_REPO_ROOT}/runtime/src"
-          "./zserio-cpp17-rt")
-        add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
-      elseif(DEFINED ZSERIO_CPP17_VERSION)
-        message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git")
-        FetchContent_Declare(
-          ZserioCpp17Runtime
-          GIT_REPOSITORY https://github.com/ndsev/zserio-cpp17.git
-          GIT_TAG        "v${ZSERIO_CPP17_VERSION}"
-          GIT_SHALLOW    TRUE
-          SOURCE_SUBDIR  runtime/src
-        )
-        FetchContent_MakeAvailable(ZserioCpp17Runtime)
-        add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
-      else()
-        message(STATUS "URL: https://github.com/ndsev/zserio.git")
-        FetchContent_Declare(
-          ZserioCppRuntime
-          GIT_REPOSITORY https://github.com/ndsev/zserio.git
-          GIT_TAG        "v${ZSERIO_VERSION}"
-          GIT_SHALLOW    TRUE
-          SOURCE_SUBDIR  compiler/extensions/cpp/runtime/src
-        )
-        FetchContent_MakeAvailable(ZserioCppRuntime)
+  if (NOT TARGET ZserioCppRuntime)
+    if(DEFINED ZSERIO_CPP17_REPO_ROOT)
+      message(STATUS "ZSERIO_CPP17_REPO_ROOT is defined, using zserio cpp17 runtime from ${ZSERIO_CPP17_REPO_ROOT}/runtime/src")
+      add_subdirectory("${ZSERIO_CPP17_REPO_ROOT}/runtime/src"
+        "./zserio-cpp17-rt")
+      add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
+    elseif(DEFINED ZSERIO_CPP17_VERSION)
+      message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git")
+      FetchContent_Declare(
+        ZserioCpp17Runtime
+        GIT_REPOSITORY https://github.com/ndsev/zserio-cpp17.git
+        GIT_TAG        "v${ZSERIO_CPP17_VERSION}"
+        GIT_SHALLOW    TRUE
+        SOURCE_SUBDIR  runtime/src
+      )
+      FetchContent_MakeAvailable(ZserioCpp17Runtime)
+      add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
+    elseif(DEFINED ZSERIO_REPO_ROOT)
+      message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
+      cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
+      add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src"
+        "./zserio-rt")
+      message("Adding zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src. With SQLite: ${ZS_RUNTIME_WITH_SQLITE3}")
+      if (ZS_RUNTIME_WITH_SQLITE3)
+        add_zserio_sqlite3()
+        target_link_libraries(ZserioCppRuntime PUBLIC zserio-sqlite3)
       endif()
     else()
-      message(STATUS "Target ZserioCppRuntime is already available.")
+      message(STATUS "URL: https://github.com/ndsev/zserio.git")
+      FetchContent_Declare(
+        ZserioCppRuntime
+        GIT_REPOSITORY https://github.com/ndsev/zserio.git
+        GIT_TAG        "v${ZSERIO_VERSION}"
+        GIT_SHALLOW    TRUE
+        SOURCE_SUBDIR  compiler/extensions/cpp/runtime/src
+      )
+      FetchContent_MakeAvailable(ZserioCppRuntime)
     endif()
-    if (NOT DEFINED ZSERIO_CPP17_REPO_ROOT)
-      message(STATUS "Downloading zserio runtime from Github... complete!")
-    endif()
+  else()
+    message(STATUS "Target ZserioCppRuntime is already available.")
   endif()
 endmacro()
 
