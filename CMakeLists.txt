@@ -208,14 +208,15 @@ macro(add_zserio_cpp_runtime)
       add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
     elseif(DEFINED ZSERIO_CPP17_VERSION)
       message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git")
+      message(STATUS "TAG: v${ZSERIO_CPP17_VERSION}")
       FetchContent_Declare(
-        ZserioCpp17Runtime
+        ZserioCpp17RuntimeDep
         GIT_REPOSITORY https://github.com/ndsev/zserio-cpp17.git
         GIT_TAG        "v${ZSERIO_CPP17_VERSION}"
         GIT_SHALLOW    TRUE
         SOURCE_SUBDIR  runtime/src
       )
-      FetchContent_MakeAvailable(ZserioCpp17Runtime)
+      FetchContent_MakeAvailable(ZserioCpp17RuntimeDep)
       add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
     elseif(DEFINED ZSERIO_REPO_ROOT)
       message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
