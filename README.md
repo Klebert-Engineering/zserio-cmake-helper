@@ -116,6 +116,9 @@ Once the `zserio-cmake-helper` target is available, you can use the `add_zserio_
 #   WITH_POLYMORPHIC_ALLOC
 #     Set this flag to enable the -setCppAllocator polymorphic
 #     flag for the zserio C++ emitter.
+#   WITH_AMALGAMATION
+#     Set this flag to enable the -withSourcesAmalgamation flag
+#     for the zseior C++ emitter.
 #   QUIET
 #     Suppress all zserio compiler output.
 #   SHARED

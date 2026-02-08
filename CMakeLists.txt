@@ -316,7 +316,7 @@ endmacro()
 #
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0 ZS_LIB
-    "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC;CACHE_GENERATION"
+    "EXCLUDE_FROM_ALL;WITH_AMALGAMATION;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC;CACHE_GENERATION"
     "ROOT;ENTRY;TOP_LEVEL_PKG"
     "EXTRA_ARGS")
 
@@ -394,6 +394,9 @@ function(add_zserio_library ZS_LIB_NAME)
     endif()
     if (ZS_LIB_WITH_POLYMORPHIC_ALLOC)
       list(APPEND zserio_args "-setCppAllocator" "polymorphic")
+    endif()
+    if (ZS_LIB_WITH_AMALGAMATION)
+      list(APPEND zserio_args "-withSourcesAmalgamation")
     endif()
 
     list(APPEND zserio_args "-withoutCrossExtensionCheck")
