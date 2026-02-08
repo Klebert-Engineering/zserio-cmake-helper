@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
 project(zserio-cmake-helper)
 
+set(VERSION_NUMBER_REGEX "\\d+\\.\\d+(\\.\\d+)?")
+
 # Add a target to which zserio libs are added
 add_custom_target(${PROJECT_NAME} ALL
   COMMENT "Target to which add_zserio_library is appending.")
@@ -15,13 +17,35 @@ endif()
 
 set(ZSERIO_CPP17_PLUGIN_SOURCE_DIR "")
 
+# Figure out zserio-cpp17 module needs to be built from source.
+# If ZSERIO_CPP17_VERSION is not a version number, use FetchContent
+# to clone the git-ref and set ZSERIO_CPP17_REPO_ROOT to the cloned
+# repository.
+if (DEFINED ZSERIO_CPP17_VERSION)
+  string(REGEX MATCH "${VERSION_NUMBER_REGEX}" ZSERIO_CPP17_VERSION_MATCH "${ZSERIO_CPP17_VERSION}")
+  if (NOT ZSERIO_CPP17_VERSION_MATCH)
+    set(ZSERIO_CPP17_GIT_TAG "${ZSERIO_CPP17_VERSION}")
+    message(STATUS "=> Cloning zserio-cpp17#${ZSERIO_CPP17_VERSION}")
+    FetchContent_Declare(ZserioCpp17BuildRootDep
+      GIT_REPOSITORY "https://github.com/ndsev/zserio-cpp17.git"
+      GIT_TAG        "${ZSERIO_CPP17_GIT_TAG}"
+      GIT_SHALLOW    TRUE)
+    FetchContent_MakeAvailable(ZserioCpp17BuildRootDep)
+    set(ZSERIO_CPP17_REPO_ROOT "${zseriocpp17buildrootdep_SOURCE_DIR}")
+    message(STATUS "=> Setting ZSERIO_CPP17_REPO_ROOT to '${ZSERIO_CPP17_REPO_ROOT}'")
+  else()
+    set(ZSERIO_CPP17_GIT_TAG "v${ZSERIO_CPP17_VERSION}")
+    message(STATUS "=> Using zserio-cpp17#${ZSERIO_CPP17_GIT_TAG}")
+  endif()
+endif()
+
 if (DEFINED ZSERIO_CPP17_REPO_ROOT)
   if (DEFINED ZSERIO_CPP17_VERSION OR DEFINED ZSERIO_CPP17_ARCHIVE)
     message(STATUS "ZSERIO_CPP17_REPO_ROOT is set; ignoring ZSERIO_CPP17_VERSION/ARCHIVE")
   endif()
 
-  message("=> Building zserio-cpp17 from source ...")
-  message("=> Using zserio-cpp17 from ${ZSERIO_CPP17_REPO_ROOT}")
+  message(STATUS "=> Building zserio-cpp17 from source ...")
+  message(STATUS "=> Using zserio-cpp17 from ${ZSERIO_CPP17_REPO_ROOT}")
 
   set(ZSERIO_CPP17_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/zserio-cpp17")
   set(ZSERIO_CPP17_DISTR_DIR "${ZSERIO_CPP17_OUTPUT_DIR}/distr")
@@ -201,24 +225,22 @@ endmacro()
 # will be called, and ZserioCppRuntime will link against it.
 macro(add_zserio_cpp_runtime)
   if (NOT TARGET ZserioCppRuntime)
-    if(DEFINED ZSERIO_CPP17_REPO_ROOT)
+    if (DEFINED ZSERIO_CPP17_REPO_ROOT)
       message(STATUS "ZSERIO_CPP17_REPO_ROOT is defined, using zserio cpp17 runtime from ${ZSERIO_CPP17_REPO_ROOT}/runtime/src")
       add_subdirectory("${ZSERIO_CPP17_REPO_ROOT}/runtime/src"
         "./zserio-cpp17-rt")
       add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
-    elseif(DEFINED ZSERIO_CPP17_VERSION)
-      message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git")
-      message(STATUS "TAG: v${ZSERIO_CPP17_VERSION}")
+    elseif (DEFINED ZSERIO_CPP17_GIT_TAG)
+      message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git#${ZSERIO_CPP17_GIT_TAG}")
       FetchContent_Declare(
         ZserioCpp17RuntimeDep
         GIT_REPOSITORY https://github.com/ndsev/zserio-cpp17.git
-        GIT_TAG        "v${ZSERIO_CPP17_VERSION}"
+        GIT_TAG        "${ZSERIO_CPP17_GIT_TAG}"
         GIT_SHALLOW    TRUE
-        SOURCE_SUBDIR  runtime/src
-      )
+        SOURCE_SUBDIR  runtime/src)
       FetchContent_MakeAvailable(ZserioCpp17RuntimeDep)
       add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
-    elseif(DEFINED ZSERIO_REPO_ROOT)
+    elseif (DEFINED ZSERIO_REPO_ROOT)
       message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
       cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
       add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src"
