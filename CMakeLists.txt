@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(zserio-cmake-helper)
 
-set(VERSION_NUMBER_REGEX "\\d+\\.\\d+(\\.\\d+)?")
-
 # Add a target to which zserio libs are added
 add_custom_target(${PROJECT_NAME} ALL
   COMMENT "Target to which add_zserio_library is appending.")
@@ -22,6 +20,7 @@ set(ZSERIO_CPP17_PLUGIN_SOURCE_DIR "")
 # to clone the git-ref and set ZSERIO_CPP17_REPO_ROOT to the cloned
 # repository.
 if (DEFINED ZSERIO_CPP17_VERSION)
+  set(VERSION_NUMBER_REGEX "\\d+\\.\\d+(\\.\\d+)?")
   string(REGEX MATCH "${VERSION_NUMBER_REGEX}" ZSERIO_CPP17_VERSION_MATCH "${ZSERIO_CPP17_VERSION}")
   if (NOT ZSERIO_CPP17_VERSION_MATCH)
     set(ZSERIO_CPP17_GIT_TAG "${ZSERIO_CPP17_VERSION}")
@@ -230,7 +229,13 @@ macro(add_zserio_cpp_runtime)
       add_subdirectory("${ZSERIO_CPP17_REPO_ROOT}/runtime/src"
         "./zserio-cpp17-rt")
       add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
-    elseif (DEFINED ZSERIO_CPP17_GIT_TAG)
+    elseif (DEFINED ZSERIO_CPP17_VERSION)
+      string(REGEX MATCH "\\d+\\.\\d+(\\.\\d+)?" ZSERIO_CPP17_VERSION_MATCH "${ZSERIO_CPP17_VERSION}")
+      if (NOT ZSERIO_CPP17_VERSION_MATCH)
+        set(ZSERIO_CPP17_GIT_TAG "${ZSERIO_CPP17_VERSION}")
+      else()
+        set(ZSERIO_CPP17_GIT_TAG "v${ZSERIO_CPP17_VERSION}")
+      endif()
       message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git#${ZSERIO_CPP17_GIT_TAG}")
       FetchContent_Declare(
         ZserioCpp17RuntimeDep
