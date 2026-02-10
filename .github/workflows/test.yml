@@ -1,0 +1,37 @@
+name: Test
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ '**' ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+  workflow_dispatch:
+
+env:
+  ZSERIO_REPO_ROOT: "${{ github.workspace }}/zserio-root"
+  ZSERIO_CPP17_REPO_ROOT: "${{ github.workspace }}/zserio-cpp17-root"
+
+jobs:
+  build-linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Clone zserio
+      run: |
+        git clone -b "v2.18.0" -- "https://github.com/ndsev/zserio.git" "$ZSERIO_REPO_ROOT"
+        ls -al "$ZSERIO_REPO_ROOT/scripts"
+    - name: Clone zserio-cpp17
+      run: |
+        git clone -b "v0.5.0" -- "https://github.com/ndsev/zserio-cpp17.git" "$ZSERIO_CPP17_REPO_ROOT"
+        ls -al "$ZSERIO_CPP17_REPO_ROOT/scripts"
+    - name: Test
+      run: |
+        mkdir build
+        cmake -S tests -B build
+        ctest --test-dir build --output-on-failure

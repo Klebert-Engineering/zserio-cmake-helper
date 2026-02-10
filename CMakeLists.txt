@@ -5,10 +5,110 @@ project(zserio-cmake-helper)
 add_custom_target(${PROJECT_NAME} ALL
   COMMENT "Target to which add_zserio_library is appending.")
 
+# Sanitize JAVA_HOME path to use forward slashes
+if(DEFINED ENV{JAVA_HOME})
+  string(REPLACE "\\" "/" UNIX_JAVA_HOME "$ENV{JAVA_HOME}")
+  string(REGEX REPLACE "^([a-zA-Z]):" "/\\1" UNIX_JAVA_HOME "${UNIX_JAVA_HOME}")
+  message(STATUS "Converted JAVA_HOME to Unix-style: ${UNIX_JAVA_HOME}")
+  set(ENV{JAVA_HOME} ${UNIX_JAVA_HOME})
+endif()
+
+set(ZSERIO_CPP17_PLUGIN_SOURCE_DIR "")
+
+# Figure out zserio-cpp17 module needs to be built from source.
+# If ZSERIO_CPP17_VERSION is not a version number, use FetchContent
+# to clone the git-ref and set ZSERIO_CPP17_REPO_ROOT to the cloned
+# repository.
+if (DEFINED ZSERIO_CPP17_VERSION)
+  set(VERSION_NUMBER_REGEX "[0-9]+\\.[0-9]+(\\.[0-9]+)?")
+  string(REGEX MATCH "${VERSION_NUMBER_REGEX}" ZSERIO_CPP17_VERSION_MATCH "${ZSERIO_CPP17_VERSION}")
+  if (NOT ZSERIO_CPP17_VERSION_MATCH)
+    set(ZSERIO_CPP17_GIT_TAG "${ZSERIO_CPP17_VERSION}")
+    message(STATUS "=> Cloning zserio-cpp17#${ZSERIO_CPP17_VERSION}")
+    FetchContent_Declare(ZserioCpp17BuildRootDep
+      GIT_REPOSITORY "https://github.com/ndsev/zserio-cpp17.git"
+      GIT_TAG        "${ZSERIO_CPP17_GIT_TAG}"
+      GIT_SHALLOW    TRUE)
+    FetchContent_MakeAvailable(ZserioCpp17BuildRootDep)
+    set(ZSERIO_CPP17_REPO_ROOT "${zseriocpp17buildrootdep_SOURCE_DIR}")
+    message(STATUS "=> Setting ZSERIO_CPP17_REPO_ROOT to '${ZSERIO_CPP17_REPO_ROOT}'")
+  else()
+    set(ZSERIO_CPP17_GIT_TAG "v${ZSERIO_CPP17_VERSION}")
+    message(STATUS "=> Using zserio-cpp17#${ZSERIO_CPP17_GIT_TAG}")
+  endif()
+endif()
+
+if (DEFINED ZSERIO_CPP17_REPO_ROOT)
+  if (DEFINED ZSERIO_CPP17_VERSION OR DEFINED ZSERIO_CPP17_ARCHIVE)
+    message(STATUS "ZSERIO_CPP17_REPO_ROOT is set; ignoring ZSERIO_CPP17_VERSION/ARCHIVE")
+  endif()
+
+  message(STATUS "=> Building zserio-cpp17 from source ...")
+  message(STATUS "=> Using zserio-cpp17 from ${ZSERIO_CPP17_REPO_ROOT}")
+
+  set(ZSERIO_CPP17_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/zserio-cpp17")
+  set(ZSERIO_CPP17_DISTR_DIR "${ZSERIO_CPP17_OUTPUT_DIR}/distr")
+
+  if(NOT DEFINED ENV{JAVA_HOME})
+    message(STATUS "JAVA_HOME is not defined.")
+  endif()
+
+  if (NOT BASH_EXECUTABLE)
+    find_program(BASH_EXECUTABLE bash)
+    if(NOT BASH_EXECUTABLE)
+        message(FATAL_ERROR "bash executable not found.")
+    endif()
+  endif()
+
+  if (NOT EXISTS "${ZSERIO_CPP17_REPO_ROOT}/scripts/build.sh")
+    message(FATAL_ERROR "zserio-cpp17 build script not found at ${ZSERIO_CPP17_REPO_ROOT}/scripts/build.sh")
+  endif()
+
+  if (NOT DEFINED ZSERIO_CPP17_BUILD_ARGS)
+    set(ZSERIO_CPP17_BUILD_ARGS "cpp")
+  endif()
+
+  message("=> Running zserio-cpp17 build: '${BASH_EXECUTABLE}' -c \"'${ZSERIO_CPP17_REPO_ROOT}/scripts/build.sh' ${ZSERIO_CPP17_BUILD_ARGS} -o '${ZSERIO_CPP17_OUTPUT_DIR}'\"")
+  execute_process(
+    COMMAND ${BASH_EXECUTABLE} -c "'${ZSERIO_CPP17_REPO_ROOT}/scripts/build.sh' ${ZSERIO_CPP17_BUILD_ARGS} -o '${ZSERIO_CPP17_OUTPUT_DIR}'"
+    WORKING_DIRECTORY "${ZSERIO_CPP17_REPO_ROOT}"
+    RESULT_VARIABLE ZSERIO_CPP17_BUILD_RESULT
+    ERROR_VARIABLE ZSERIO_CPP17_BUILD_ERROR)
+
+  message(STATUS "Build error: ${ZSERIO_CPP17_BUILD_ERROR}")
+  message(STATUS "Build result: ${ZSERIO_CPP17_BUILD_RESULT}")
+
+  if (NOT ZSERIO_CPP17_BUILD_RESULT EQUAL "0")
+    message(FATAL_ERROR "Failed to build zserio-cpp17 in ${ZSERIO_CPP17_REPO_ROOT}.")
+  endif()
+
+  set(ZSERIO_CPP17_PLUGIN_SOURCE_DIR "${ZSERIO_CPP17_DISTR_DIR}")
+else()
+  if (DEFINED ZSERIO_CPP17_VERSION)
+    if (NOT DEFINED ZSERIO_CPP17_ARCHIVE)
+      set(ZSERIO_CPP17_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip")
+      if (NOT EXISTS "${ZSERIO_CPP17_ARCHIVE}")
+        message("=> Downloading zserio-cpp17.jar from GitHub releases ...")
+        file(DOWNLOAD
+          "https://github.com/ndsev/zserio-cpp17/releases/download/v${ZSERIO_CPP17_VERSION}/zserio-cpp17-${ZSERIO_CPP17_VERSION}-bin.zip"
+          "${ZSERIO_CPP17_ARCHIVE}")
+      endif()
+    endif()
+  endif()
+
+  if (DEFINED ZSERIO_CPP17_ARCHIVE)
+    set(ZSERIO_CPP17_EXTRACT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+    message("=> Unzipping zserio-cpp17.jar (${ZSERIO_CPP17_ARCHIVE})")
+    file(ARCHIVE_EXTRACT INPUT "${ZSERIO_CPP17_ARCHIVE}"
+      DESTINATION "${ZSERIO_CPP17_EXTRACT_DIR}")
+    set(ZSERIO_CPP17_PLUGIN_SOURCE_DIR "${ZSERIO_CPP17_EXTRACT_DIR}")
+  endif()
+endif()
+
+set(ZSERIO_PLUGIN_DEST_DIR "")
 
 # Depending on whether ZSERIO_REPO_ROOT or ZSERIO_VERSION is set,
 # either build zserio.jar from source or download a pre-built version.
-
 if(DEFINED ZSERIO_VERSION)
   set(ZSERIO_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/zserio-${ZSERIO_VERSION}-bin.zip")
 
@@ -20,7 +120,6 @@ if(DEFINED ZSERIO_VERSION)
       "${ZSERIO_ARCHIVE}")
   endif()
 
-  
   # Unzip zserio.jar
   message("=> Unzipping zserio.jar ...")
   file(ARCHIVE_EXTRACT INPUT "${ZSERIO_ARCHIVE}"
@@ -30,9 +129,8 @@ if(DEFINED ZSERIO_VERSION)
   set_target_properties(${PROJECT_NAME}
     PROPERTIES
       jar "${CMAKE_CURRENT_BINARY_DIR}/zserio.jar")
-
+  set(ZSERIO_PLUGIN_DEST_DIR "${CMAKE_CURRENT_BINARY_DIR}")
   message("=> zserio.jar is now available from ${CMAKE_CURRENT_BINARY_DIR}/zserio.jar")
-
 elseif(DEFINED ZSERIO_REPO_ROOT)
   # Build zserio.jar from source
   message("=> Building zserio.jar from source ...")
@@ -43,24 +141,16 @@ elseif(DEFINED ZSERIO_REPO_ROOT)
   set(ZSERIO_BUILD_DIR ${ZSERIO_OUTPUT_DIR}/build)
   set(ZSERIO_DISTR_DIR ${ZSERIO_OUTPUT_DIR}/distr)
 
-  # Set up JAVA_HOME in Unix-style if it is defined. This is required by
-  # the zserio build's Java detection logic.
-  if(DEFINED ENV{JAVA_HOME})
-    # Replace backslashes with forward slashes and remove the colon (e.g., "C:\Path" becomes "/C/Path")
-    string(REPLACE "\\" "/" UNIX_JAVA_HOME "$ENV{JAVA_HOME}")
-    string(REGEX REPLACE "^([a-zA-Z]):" "/\\1" UNIX_JAVA_HOME "${UNIX_JAVA_HOME}")
-    message(STATUS "Converted JAVA_HOME to Unix-style: ${UNIX_JAVA_HOME}")
-    set(ENV{JAVA_HOME} ${UNIX_JAVA_HOME})
-  else()
+  if(NOT DEFINED ENV{JAVA_HOME})
     message(STATUS "JAVA_HOME is not defined.")
   endif()
 
-  # Find bash
-  find_program(BASH_EXECUTABLE bash)
   if(NOT BASH_EXECUTABLE)
-    message(FATAL_ERROR "bash not found. Please ensure that bash is installed and accessible.")
+    find_program(BASH_EXECUTABLE bash)
+    if(NOT BASH_EXECUTABLE)
+        message(FATAL_ERROR "bash not found. Please ensure that bash is installed and accessible.")
+    endif()
   endif()
-  message(STATUS "Found bash executable at: ${BASH_EXECUTABLE}")
 
   # Run ant for zserio_core, zserio_cpp, and zserio_doc, then bundle into zserio.jar
   message("=> Running main zserio install: '${BASH_EXECUTABLE}' -c \"'${ZSERIO_REPO_ROOT}/scripts/build.sh' core cpp zserio -o '${ZSERIO_OUTPUT_DIR}'\"")
@@ -82,16 +172,33 @@ elseif(DEFINED ZSERIO_REPO_ROOT)
   set_target_properties(${PROJECT_NAME}
     PROPERTIES
       jar "${ZSERIO_DISTR_DIR}/zserio.jar")
+  set(ZSERIO_PLUGIN_DEST_DIR "${ZSERIO_DISTR_DIR}")
 
   message("=> zserio.jar is now available from ${ZSERIO_DISTR_DIR}/zserio.jar")
 else()
   message(FATAL_ERROR "Either ZSERIO_REPO_ROOT or ZSERIO_VERSION must be defined to use zserio.")
 endif()
 
+# Copy the plugin to its destination if the source dir != dest dir
+if (DEFINED ZSERIO_CPP17_PLUGIN_SOURCE_DIR AND NOT "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}" STREQUAL "")
+  message(STATUS "Copying C++17 plugin: ${ZSERIO_CPP17_PLUGIN_SOURCE_DIR} → ${ZSERIO_PLUGIN_DEST_DIR}")
+  if (NOT "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}" STREQUAL "${ZSERIO_PLUGIN_DEST_DIR}")
+    if (EXISTS "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/extensions")
+      message(STATUS "Copying extensions/ ...")
+      file(COPY "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/extensions" DESTINATION "${ZSERIO_PLUGIN_DEST_DIR}")
+    endif()
+    if (EXISTS "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/zserio_cpp17.jar")
+      message(STATUS "Copying zserio_cpp17.jar ...")
+      file(COPY "${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}/zserio_cpp17.jar" DESTINATION "${ZSERIO_PLUGIN_DEST_DIR}")
+    else()
+      message(FATAL_ERROR "zserio-cpp17 plugin was requested, but no plugin jar was found in ${ZSERIO_CPP17_PLUGIN_SOURCE_DIR}")
+    endif()
+  endif()
+endif()
+
 
 # Macro to add zserio-sqlite3 as shipped under zserio/3rdparty
 macro(add_zserio_sqlite3)
-
   if(NOT DEFINED ZSERIO_REPO_ROOT)
     message(FATAL_ERROR "ZSERIO_REPO_ROOT must be defined to use add_zserio_sqlite3")
   endif()
@@ -116,32 +223,66 @@ endmacro()
 # If the option WITH_SQLITE3 is set, add_zserio_sqlite3
 # will be called, and ZserioCppRuntime will link against it.
 macro(add_zserio_cpp_runtime)
-  if(DEFINED ZSERIO_REPO_ROOT)
-    message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
-    cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
-    add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src"
-      "./zserio-rt")
-    message("Adding zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src. With SQLite: ${ZS_RUNTIME_WITH_SQLITE3}")
-    if (ZS_RUNTIME_WITH_SQLITE3)
-      add_zserio_sqlite3()
-      target_link_libraries(ZserioCppRuntime PUBLIC zserio-sqlite3)
-  endif()
-  else()
-    # Get the runtime from the zserio repository
-    message(STATUS "ZSERIO_VERSION is defined, downloading zserio runtime from Github...")
-    if (NOT TARGET ZserioCppRuntime)
+  if (NOT TARGET ZserioCppRuntime)
+    if (DEFINED ZSERIO_CPP17_REPO_ROOT)
+      message(STATUS "ZSERIO_CPP17_REPO_ROOT is defined, using zserio cpp17 runtime from ${ZSERIO_CPP17_REPO_ROOT}/runtime/src")
+      add_subdirectory("${ZSERIO_CPP17_REPO_ROOT}/runtime/src"
+        "./zserio-cpp17-rt")
+      add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
+    elseif (DEFINED ZSERIO_CPP17_VERSION OR DEFINED ZSERIO_CPP17_ARCHIVE)
+      set(ZSERIO_CPP17_RUNTIME_TAG "")
+      if (DEFINED ZSERIO_CPP17_VERSION)
+        string(REGEX MATCH "[0-9]+\\.[0-9]+(\\.[0-9]+)?" ZSERIO_CPP17_VERSION_MATCH "${ZSERIO_CPP17_VERSION}")
+        if (NOT ZSERIO_CPP17_VERSION_MATCH)
+          set(ZSERIO_CPP17_RUNTIME_TAG "${ZSERIO_CPP17_VERSION}")
+        else()
+          set(ZSERIO_CPP17_RUNTIME_TAG "v${ZSERIO_CPP17_VERSION}")
+        endif()
+      else()
+        get_filename_component(ZSERIO_CPP17_ARCHIVE_NAME "${ZSERIO_CPP17_ARCHIVE}" NAME)
+        string(REGEX MATCH "zserio-cpp17-([0-9]+\\.[0-9]+(\\.[0-9]+)?)" ZSERIO_CPP17_ARCHIVE_MATCH "${ZSERIO_CPP17_ARCHIVE_NAME}")
+        if (CMAKE_MATCH_1)
+          set(ZSERIO_CPP17_RUNTIME_TAG "v${CMAKE_MATCH_1}")
+        else()
+          message(FATAL_ERROR "ZSERIO_CPP17_ARCHIVE was provided, but could not infer version from filename. Set ZSERIO_CPP17_VERSION or ZSERIO_CPP17_REPO_ROOT.")
+        endif()
+      endif()
+      if (NOT ZSERIO_CPP17_RUNTIME_TAG)
+        message(FATAL_ERROR "Could not determine zserio-cpp17 runtime tag. Set ZSERIO_CPP17_VERSION or ZSERIO_CPP17_REPO_ROOT.")
+      endif()
+      message(STATUS "URL: https://github.com/ndsev/zserio-cpp17.git#${ZSERIO_CPP17_RUNTIME_TAG}")
+      FetchContent_Declare(
+        ZserioCpp17RuntimeDep
+        GIT_REPOSITORY https://github.com/ndsev/zserio-cpp17.git
+        GIT_TAG        "${ZSERIO_CPP17_RUNTIME_TAG}"
+        GIT_SHALLOW    TRUE
+        SOURCE_SUBDIR  runtime/src)
+      FetchContent_MakeAvailable(ZserioCpp17RuntimeDep)
+      add_library(ZserioCppRuntime ALIAS ZserioCpp17Runtime)
+    elseif (DEFINED ZSERIO_REPO_ROOT)
+      message("ZSERIO_REPO_ROOT is defined, using zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src")
+      cmake_parse_arguments(ZS_RUNTIME "WITH_SQLITE3" "" "" ${ARGV0})
+      add_subdirectory("${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src"
+        "./zserio-rt")
+      message("Adding zserio cpp runtime from ${ZSERIO_REPO_ROOT}/compiler/extensions/cpp/runtime/src. With SQLite: ${ZS_RUNTIME_WITH_SQLITE3}")
+      if (ZS_RUNTIME_WITH_SQLITE3)
+        add_zserio_sqlite3()
+        target_link_libraries(ZserioCppRuntime PUBLIC zserio-sqlite3)
+      endif()
+    else()
+      message(STATUS "URL: https://github.com/ndsev/zserio.git")
       FetchContent_Declare(
         ZserioCppRuntime
         GIT_REPOSITORY https://github.com/ndsev/zserio.git
         GIT_TAG        "v${ZSERIO_VERSION}"
-        GIT_SHALLOW    TRUE 
+        GIT_SHALLOW    TRUE
         SOURCE_SUBDIR  compiler/extensions/cpp/runtime/src
       )
       FetchContent_MakeAvailable(ZserioCppRuntime)
     endif()
-    message(STATUS "Downloading zserio runtime from Github... complete!")
+  else()
+    message(STATUS "Target ZserioCppRuntime is already available.")
   endif()
-
 endmacro()
 
 # Function to create a library from zserio schema sources.
@@ -189,7 +330,7 @@ endmacro()
 #
 function(add_zserio_library ZS_LIB_NAME)
   cmake_parse_arguments(PARSE_ARGV 0 ZS_LIB
-    "EXCLUDE_FROM_ALL;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC;CACHE_GENERATION"
+    "EXCLUDE_FROM_ALL;WITH_AMALGAMATION;WITH_REFLECTION;WITHOUT_SQL;SHARED;WITH_IMPLICIT_ARRAYS;QUIET;WITH_POLYMORPHIC_ALLOC;CACHE_GENERATION"
     "ROOT;ENTRY;TOP_LEVEL_PKG"
     "EXTRA_ARGS")
 
@@ -268,6 +409,9 @@ function(add_zserio_library ZS_LIB_NAME)
     if (ZS_LIB_WITH_POLYMORPHIC_ALLOC)
       list(APPEND zserio_args "-setCppAllocator" "polymorphic")
     endif()
+    if (ZS_LIB_WITH_AMALGAMATION)
+      list(APPEND zserio_args "-withSourcesAmalgamation")
+    endif()
 
     list(APPEND zserio_args "-withoutCrossExtensionCheck")
     list(APPEND zserio_args "${ZS_LIB_EXTRA_ARGS}")
@@ -276,10 +420,15 @@ function(add_zserio_library ZS_LIB_NAME)
       set(quiet OUTPUT_QUIET ERROR_QUIET)
     endif()
 
-    message("=> Generating code for zserio library ${ZS_LIB_NAME} ...")
+    set(CPP_GEN_FLAG "-cpp")
+    if (DEFINED ZSERIO_CPP17_VERSION OR DEFINED ZSERIO_CPP17_ARCHIVE OR DEFINED ZSERIO_CPP17_REPO_ROOT)
+      set(CPP_GEN_FLAG "-cpp17")
+    endif()
+
+    message("=> Generating code for zserio library ${ZS_LIB_NAME} (Generator ${CPP_GEN_FLAG}) ...")
     execute_process(
       COMMAND ${ZSERIO}
-        -cpp ${ZSERIO_GEN_DIR}
+        ${CPP_GEN_FLAG} ${ZSERIO_GEN_DIR}
         -src ${ZS_LIB_ROOT}
         ${zserio_args}
         ${ZS_LIB_ENTRY}
@@ -305,15 +454,23 @@ function(add_zserio_library ZS_LIB_NAME)
     add_library(${ZS_LIB_NAME} STATIC ${SOURCES_API} ${HEADERS_API})
   endif()
 
+  if (DEFINED ZSERIO_CPP17_VERSION OR DEFINED ZSERIO_CPP17_ARCHIVE OR DEFINED ZSERIO_CPP17_REPO_ROOT)
+    set(ZSERIO_CXX_STANDARD 17)
+    set(ZSERIO_CXX_FEATURE cxx_std_17)
+  else()
+    set(ZSERIO_CXX_STANDARD 14)
+    set(ZSERIO_CXX_FEATURE cxx_std_14)
+  endif()
+
   set_target_properties(${ZS_LIB_NAME} PROPERTIES
     POSITION_INDEPENDENT_CODE YES
-    CXX_STANDARD 14
+    CXX_STANDARD ${ZSERIO_CXX_STANDARD}
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO)
 
   target_include_directories(${ZS_LIB_NAME} PUBLIC "${ZSERIO_GEN_DIR}")
   target_link_libraries(${ZS_LIB_NAME} PUBLIC ZserioCppRuntime)
-  target_compile_features (${ZS_LIB_NAME} PUBLIC cxx_std_14)
+  target_compile_features (${ZS_LIB_NAME} PUBLIC ${ZSERIO_CXX_FEATURE})
 
   if (NOT ZS_LIB_EXCLUDE_FROM_ALL)
     add_dependencies(zserio-cmake-helper ${ZS_LIB_NAME})

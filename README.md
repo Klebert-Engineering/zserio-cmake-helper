@@ -82,6 +82,17 @@ add_zserio_cpp_runtime()
 # inside of the zserio repo under 3rdparty/sqlite3.
 ```
 
+### Optional: zserio-cpp17 plugin
+
+To enable the C++17 generator (`-cpp17`), provide one of:
+
+- `ZSERIO_CPP17_VERSION=...` to download a pre-built plugin release
+- `ZSERIO_CPP17_ARCHIVE=/path/to/zserio-cpp17-*-bin.zip`
+- `ZSERIO_CPP17_REPO_ROOT=/path/to/zserio-cpp17` to build the plugin from source
+
+When building zserio from source, the plugin is staged into the zserio `distr/`
+folder so the compiler can load it.
+
 ### Both options: `add_zserio_library`
 
 Once the `zserio-cmake-helper` target is available, you can use the `add_zserio_library` function to generate C++ code from your zserio schema files.
@@ -105,6 +116,9 @@ Once the `zserio-cmake-helper` target is available, you can use the `add_zserio_
 #   WITH_POLYMORPHIC_ALLOC
 #     Set this flag to enable the -setCppAllocator polymorphic
 #     flag for the zserio C++ emitter.
+#   WITH_AMALGAMATION
+#     Set this flag to enable the -withSourcesAmalgamation flag
+#     for the zseior C++ emitter.
 #   QUIET
 #     Suppress all zserio compiler output.
 #   SHARED
