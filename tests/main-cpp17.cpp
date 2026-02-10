@@ -4,6 +4,9 @@
 // C++17 runtime, but not by the default
 // zserio C++ runtime.
 #include "zserio/Optional.h"
+#if __has_include(<zserio/AnyHolder.h>)
+#    error "C++17 Binary linked to non-C++17 runtime!"
+#endif
 
 int main()
 {
