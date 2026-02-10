@@ -456,15 +456,23 @@ function(add_zserio_library ZS_LIB_NAME)
     add_library(${ZS_LIB_NAME} STATIC ${SOURCES_API} ${HEADERS_API})
   endif()
 
+  if (DEFINED ZSERIO_CPP17_VERSION OR DEFINED ZSERIO_CPP17_ARCHIVE OR DEFINED ZSERIO_CPP17_REPO_ROOT)
+    set(ZSERIO_CXX_STANDARD 17)
+    set(ZSERIO_CXX_FEATURE cxx_std_17)
+  else()
+    set(ZSERIO_CXX_STANDARD 14)
+    set(ZSERIO_CXX_FEATURE cxx_std_14)
+  endif()
+
   set_target_properties(${ZS_LIB_NAME} PROPERTIES
     POSITION_INDEPENDENT_CODE YES
-    CXX_STANDARD 14
+    CXX_STANDARD ${ZSERIO_CXX_STANDARD}
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO)
 
   target_include_directories(${ZS_LIB_NAME} PUBLIC "${ZSERIO_GEN_DIR}")
   target_link_libraries(${ZS_LIB_NAME} PUBLIC ZserioCppRuntime)
-  target_compile_features (${ZS_LIB_NAME} PUBLIC cxx_std_14)
+  target_compile_features (${ZS_LIB_NAME} PUBLIC ${ZSERIO_CXX_FEATURE})
 
   if (NOT ZS_LIB_EXCLUDE_FROM_ALL)
     add_dependencies(zserio-cmake-helper ${ZS_LIB_NAME})
